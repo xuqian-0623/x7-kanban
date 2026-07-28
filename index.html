@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能制造项目进度协同管理平台 - 智能空气炸锅 X7</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark: { 50: '#f8fafc', 100: '#e2e8f0', 200: '#cbd5e1', 300: '#94a3b8', 400: '#64748b', 500: '#475569', 600: '#334155', 700: '#1e293b', 800: '#0f172a', 900: '#020617' },
+            accent: { 50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe', 300: '#c4b5fd', 400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9', 800: '#5b21b6', 900: '#4c1d95' },
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'slide-up': 'slideUp 0.3s ease-out',
+            'fade-in': 'fadeIn 0.2s ease-out',
+          },
+          keyframes: {
+            slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #a78bfa, #8b5cf6, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+    .phase-wrapper { scroll-snap-type: x mandatory; }
+    .phase-scroll { scroll-snap-align: start; }
+    @media (max-width: 768px) {
+      .kanban-scroll { overflow-x: auto; }
+    }
+    .delay-pulse {
+      animation: delayPulse 2s ease-in-out infinite;
+    }
+    @keyframes delayPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    }
+    .node-card {
+      transition: all 0.2s ease;
+    }
+    .node-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
+    .toast-enter { animation: slideUp 0.3s ease-out; }
+    .toast-exit { animation: fadeOut 0.3s ease-in forwards; }
+    @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+    .rework-flash {
+      animation: flashBorder 1.5s ease-in-out 3;
+    }
+    @keyframes flashBorder {
+      0%, 100% { border-color: rgb(251, 146, 60); }
+      50% { border-color: rgb(251, 191, 36); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useReducer, useCallback, useRef, createContext, useContext, useMemo } = React;
+
+    // =========================== MOCK DATA ===========================
+    const TODAY = new Date();
+    TODAY.setHours(0, 0, 0, 0);
+    const fmt = (d) => { const m = d.getMonth()+1, dd = d.getDate(); return `${m<10?'0':''}${m}-${dd<10?'0':''}${dd}`; };
+    const dateStr = (d) => d.toISOString().split('T')[0];
+
+    const d = (m, day) => { return new Date(2026, m-1, day); };
+    const initialPhases = () => [
+      {
+        id: 'design', name: '产品设计',
+        color: '#8b5cf6',
+        nodes: [
+          { id: 'd1', name: '内部策划',     status: 'completed', planStart: d(6,1),  planEnd: d(6,5),  actualEnd: d(6,4),  dependsOn: [] },
+          { id: 'd2', name: '任务开发',     status: 'completed', planStart: d(6,3),  planEnd: d(6,10), actualEnd: d(6,9),  dependsOn: ['d1'] },
+          { id: 'd3', name: '内部开模',     status: 'completed', planStart: d(6,8),  planEnd: d(6,15), actualEnd: d(6,14), dependsOn: ['d2'] },
+          { id: 'd4', name: '任务评估',     status: 'completed', planStart: d(6,12), planEnd: d(6,18), actualEnd: d(6,17), dependsOn: ['d3'] },
+          { id: 'd5', name: '任务拆分',     status: 'completed', planStart: d(6,16), planEnd: d(6,22), actualEnd: d(6,21), dependsOn: ['d4'] },
+          { id: 'd6', name: '内部验收',     status: 'completed', planStart: d(6,20), planEnd: d(6,25), actualEnd: d(6,24), dependsOn: ['d5'] },
+        ]
+      },
+      {
+        id: 'mold', name: '模具阶段',
+        color: '#f59e0b',
+        nodes: [
+          { id: 'm1', name: '开模',         status: 'completed', planStart: d(6,10), planEnd: d(6,20), actualEnd: d(6,19),   dependsOn: ['d6'] },
+          { id: 'm2', name: '模后处理',     status: 'completed', planStart: d(6,18), planEnd: d(6,25), actualEnd: d(6,24),   dependsOn: ['m1'] },
+          { id: 'm3', name: 'T1试模',       status: 'completed', planStart: d(6,22), planEnd: d(6,28), actualEnd: d(6,27),   dependsOn: ['m2'] },
+          { id: 'm4', name: 'T2试模',       status: 'delayed',   planStart: d(6,25), planEnd: d(7,5),                       dependsOn: ['m3'],
+            delay: { reason: '分模线问题', expectedRecovery: d(7,28), impactDays: 3 } },
+          { id: 'm5', name: 'T3试模',       status: 'pending',   planStart: d(7,8),  planEnd: d(7,15),                      dependsOn: ['m4'] },
+          { id: 'm6', name: '验收签字',     status: 'pending',   planStart: d(7,12), planEnd: d(7,20),                      dependsOn: ['m5'] },
+        ]
+      },
+      {
+        id: 'ebo', name: 'EBO阶段',
+        color: '#06b6d4',
+        nodes: [
+          { id: 'e1', name: '开模模具',     status: 'completed', planStart: d(6,20), planEnd: d(6,28), actualEnd: d(6,27), dependsOn: ['m4'] },
+          { id: 'e2', name: '手板制作',     status: 'ongoing',   planStart: d(6,25), planEnd: d(7,5),                      dependsOn: ['e1'] },
+          { id: 'e3', name: '内部手板',     status: 'pending',   planStart: d(7,1),  planEnd: d(7,8),                       dependsOn: ['e2'] },
+          { id: 'e4', name: '包装手板',     status: 'ongoing',   planStart: d(6,25), planEnd: d(7,3),                      dependsOn: [] },
+          { id: 'e5', name: '试模',         status: 'pending',   planStart: d(7,5),  planEnd: d(7,12),                      dependsOn: ['e3', 'e4'] },
+          { id: 'e6', name: '试产',         status: 'pending',   planStart: d(7,10), planEnd: d(7,18),                      dependsOn: ['e5'] },
+        ]
+      },
+      {
+        id: 'eb1', name: 'EB1阶段',
+        color: '#10b981',
+        nodes: [
+          { id: 'b1', name: '开模模具',     status: 'pending',   planStart: d(7,15), planEnd: d(7,22), dependsOn: ['e6'] },
+          { id: 'b2', name: '手板',         status: 'pending',   planStart: d(7,18), planEnd: d(7,25), dependsOn: ['b1'] },
+          { id: 'b3', name: '试装',         status: 'pending',   planStart: d(7,20), planEnd: d(7,28), dependsOn: ['b2'] },
+          { id: 'b4', name: '试产',         status: 'pending',   planStart: d(7,22), planEnd: d(7,30), dependsOn: ['b3'] },
+          { id: 'b5', name: '试产评审',     status: 'pending',   planStart: d(7,25), planEnd: d(8,2),  dependsOn: ['b4'] },
+        ]
+      },
+      {
+        id: 'batch', name: '中小批',
+        color: '#f472b6',
+        nodes: [
+          { id: 's1', name: '试装',         status: 'pending',   planStart: d(8,1),  planEnd: d(8,8),  dependsOn: ['b5'] },
+          { id: 's2', name: '试产',         status: 'pending',   planStart: d(8,5),  planEnd: d(8,12), dependsOn: ['s1'] },
+          { id: 's3', name: '首批出货',     status: 'pending',   planStart: d(8,10), planEnd: d(8,18), dependsOn: ['s2'] },
+        ]
+      }
+    ];
+
+    // Auto-transition: pending → ongoing if planStart <= today
+    const autoTransition = (phases) => {
+      return phases.map(phase => ({
+        ...phase,
+        nodes: phase.nodes.map(n => {
+          if (n.status === 'pending' && n.planStart <= TODAY && !n.delay) {
+            return { ...n, status: 'ongoing' };
+          }
+          return n;
+        })
+      }));
+    };
+
+    // =========================== HELPER ===========================
+    const getCountdown = (launchDate) => {
+      const diff = new Date(launchDate) - TODAY;
+      return Math.max(0, Math.ceil(diff / (86400000)));
+    };
+
+    const addDays = (date, days) => {
+      const d = new Date(date); d.setDate(d.getDate() + days); return d;
+    };
+
+    const getAllNodes = (phases) => {
+      const map = {};
+      phases.forEach(p => p.nodes.forEach(n => { map[n.id] = { ...n, phaseId: p.id }; }));
+      return map;
+    };
+
+    const getDownstreamNodes = (nodeId, phases) => {
+      const nodeMap = getAllNodes(phases);
+      const visited = new Set();
+      const result = [];
+      const traverse = (id) => {
+        if (visited.has(id)) return;
+        visited.add(id);
+        for (const p of phases) {
+          for (const n of p.nodes) {
+            if (n.dependsOn.includes(id) && !visited.has(n.id)) {
+              result.push(n.id);
+              traverse(n.id);
+            }
+          }
+        }
+      };
+      traverse(nodeId);
+      return result;
+    };
+
+    const getPhaseById = (phases, phaseId) => phases.find(p => p.id === phaseId);
+    const getNodeById = (phases, nodeId) => {
+      for (const p of phases) {
+        const n = p.nodes.find(x => x.id === nodeId);
+        if (n) return { ...n, phaseId: p.id };
+      }
+      return null;
+    };
+
+    const countCompleted = (phases) => {
+      let total = 0, done = 0;
+      phases.forEach(p => p.nodes.forEach(n => { total++; if (n.status === 'completed') done++; }));
+      return { done, total };
+    };
+
+    const createLog = (type, user, action, detail, target = '') => ({
+      id: 'log-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      type, user, action, detail, target,
+      timestamp: Date.now(),
+    });
+
+    const calcLaunchDate = (phases) => {
+      // Find the longest path to 首批出货
+      const nodeMap = getAllNodes(phases);
+      let latestEnd = new Date(2026, 8, 16); // default Sep 16
+      for (const p of phases) {
+        for (const n of p.nodes) {
+          if (n.planEnd > latestEnd) latestEnd = n.planEnd;
+        }
+      }
+      latestEnd.setDate(latestEnd.getDate() + 5);
+      return dateStr(latestEnd);
+    };
+
+    // =========================== REDUCER ===========================
+    const actionTypes = {
+      BATCH_ADVANCE: 'BATCH_ADVANCE',
+      MARK_DELAYED: 'MARK_DELAYED',
+      MARK_COMPLETED: 'MARK_COMPLETED',
+      CREATE_REWORK: 'CREATE_REWORK',
+      DISMISS_NOTIFICATION: 'DISMISS_NOTIFICATION',
+      CLIENT_CONFIRM: 'CLIENT_CONFIRM',
+      CLIENT_REJECT: 'CLIENT_REJECT',
+      GATE_PASS: 'GATE_PASS',
+      TERMINATE_PROJECT: 'TERMINATE_PROJECT',
+      TICK: 'TICK',
+    };
+
+    const initState = () => {
+      const phases = autoTransition(initialPhases());
+      const launchDate = calcLaunchDate(phases);
+      const phaseGates = {};
+      phases.forEach(p => { phaseGates[p.id] = { status: 'pending' }; });
+      // Phase 1 is already fully completed, mark its gate as passed
+      phaseGates.design = { status: 'passed', passedAt: d(2026, 6, 26) };
+      return {
+        phases,
+        launchDate,
+        terminated: false,
+        phaseGates,
+        activityLog: [{
+          id: 'log-init',
+          type: 'system',
+          user: '系统',
+          action: '项目初始化',
+          detail: '智能空气炸锅 X7 项目进度看板启动，5 个阶段 28 个任务节点加载完成',
+          target: '',
+          timestamp: Date.now() - 3600000,
+        }],
+        notifications: [{
+          id: 'n1',
+          type: 'delay',
+          title: 'T2试模延期',
+          reason: '分模线问题',
+          impact: '连累 EB1 试产顺延',
+          expectedRecovery: fmt(d(2026,7,28)),
+          originalCountdown: 50,
+          currentCountdown: getCountdown(launchDate),
+          nodeId: 'm4',
+          createdAt: Date.now() - 300000,
+          dismissed: false,
+        }],
+        tick: 0,
+      };
+    };
+
+    function projectReducer(state, action) {
+      let phases, node, downstreamIds, delayDays, newNodes, launchDate, notifications, n;
+
+      switch (action.type) {
+        case actionTypes.BATCH_ADVANCE: {
+          const phaseName = state.phases.find(p => p.id === action.phaseId)?.name || '';
+          phases = state.phases.map(phase => {
+            if (phase.id !== action.phaseId) return phase;
+            return {
+              ...phase,
+              nodes: phase.nodes.map(n => {
+                if (n.status === 'ongoing' && !n.delay) {
+                  const depsDone = n.dependsOn.every(depId => {
+                    for (const p of state.phases) {
+                      const found = p.nodes.find(x => x.id === depId);
+                      if (found) return found.status === 'completed';
+                    }
+                    return true;
+                  });
+                  if (depsDone) return { ...n, status: 'completed', actualEnd: new Date() };
+                }
+                return n;
+              })
+            };
+          });
+          const logB = createLog('batch_advance', '张伟', `批量推进「${phaseName}」`,
+            `将 ${phaseName} 中所有满足前置条件的进行中节点一键标记为已完成`);
+          return { ...state, phases, activityLog: [...state.activityLog, logB] };
+        }
+
+        case actionTypes.MARK_DELAYED: {
+          phases = state.phases.map(phase => ({
+            ...phase,
+            nodes: phase.nodes.map(n => {
+              if (n.id === action.nodeId) {
+                return { ...n, status: 'delayed', delay: { reason: action.reason, expectedRecovery: action.expectedRecovery, impactDays: action.impactDays } };
+              }
+              return n;
+            })
+          }));
+          // Shift downstream dates
+          delayDays = action.impactDays || 3;
+          downstreamIds = getDownstreamNodes(action.nodeId, phases);
+          phases = phases.map(phase => ({
+            ...phase,
+            nodes: phase.nodes.map(n => {
+              if (downstreamIds.includes(n.id)) {
+                return { ...n, planStart: addDays(n.planStart, delayDays), planEnd: addDays(n.planEnd, delayDays) };
+              }
+              return n;
+            })
+          }));
+          launchDate = calcLaunchDate(phases);
+          const nodeName = getNodeById(state.phases, action.nodeId)?.name || '';
+          notifications = [...state.notifications, {
+            id: 'n' + Date.now(),
+            type: 'delay',
+            title: nodeName + '延期',
+            reason: action.reason,
+            impact: `影响后续 ${delayDays} 个节点顺延`,
+            expectedRecovery: fmt(action.expectedRecovery),
+            originalCountdown: getCountdown(state.launchDate),
+            currentCountdown: getCountdown(launchDate),
+            nodeId: action.nodeId,
+            createdAt: Date.now(),
+            dismissed: false,
+          }];
+          const logD = createLog('delay', '张伟', `标记「${nodeName}」为延期上报`,
+            `原因：${action.reason}，预计 ${fmt(action.expectedRecovery)} 恢复，影响 ${delayDays} 个下游节点`);
+          return { ...state, phases, launchDate, notifications, activityLog: [...state.activityLog, logD] };
+        }
+
+        case actionTypes.MARK_COMPLETED: {
+          const cn = getNodeById(state.phases, action.nodeId);
+          phases = state.phases.map(phase => ({
+            ...phase,
+            nodes: phase.nodes.map(n => {
+              if (n.id === action.nodeId) {
+                return { ...n, status: 'completed', actualEnd: new Date(), delay: undefined };
+              }
+              return n;
+            })
+          }));
+          const logMC = createLog('batch_advance', '张伟', `「${cn?.name || ''}」问题已解决，标记为已完成`,
+            cn?.delay ? `原延期原因：${cn.delay.reason}，已确认修复完成` : `节点已手动标记为完成`);
+          return { ...state, phases, activityLog: [...state.activityLog, logMC] };
+        }
+
+        case actionTypes.CREATE_REWORK: {
+          const srcNode = getNodeById(state.phases, action.sourceNodeId);
+          const targetPhase = getPhaseById(state.phases, action.targetPhaseId);
+          if (!srcNode || !targetPhase) return state;
+
+          const v2Id = targetPhase.id + '_rework_v2_' + Date.now();
+          const newReworkNode = {
+            id: v2Id,
+            name: `[${srcNode.name} V2 返修]`,
+            status: 'ongoing',
+            planStart: new Date(),
+            planEnd: addDays(new Date(), 5),
+            dependsOn: [],
+            isRework: true,
+            reworkSource: action.sourceNodeId,
+          };
+
+          phases = state.phases.map(phase => {
+            if (phase.id === targetPhase.id) {
+              return { ...phase, nodes: [...phase.nodes, newReworkNode] };
+            }
+            // Freeze the source node
+            if (phase.id === srcNode.phaseId) {
+              return {
+                ...phase,
+                nodes: phase.nodes.map(n => {
+                  if (n.id === action.sourceNodeId) {
+                    return { ...n, status: 'frozen', reworkV2Id: v2Id };
+                  }
+                  return n;
+                })
+              };
+            }
+            return phase;
+          });
+
+          launchDate = calcLaunchDate(phases);
+          // Recalc countdown
+          notifications = [...state.notifications, {
+            id: 'n' + Date.now(),
+            type: 'rework',
+            title: `${srcNode.name}发现异常，已发起返修`,
+            reason: `${srcNode.name}发现模具异常`,
+            impact: `已创建 ${newReworkNode.name}，预计延长 3 天`,
+            expectedRecovery: fmt(addDays(new Date(), 5)),
+            originalCountdown: getCountdown(state.launchDate),
+            currentCountdown: getCountdown(launchDate),
+            nodeId: v2Id,
+            createdAt: Date.now(),
+            dismissed: false,
+          }];
+          const logR = createLog('rework', '张伟', `发起返修变更：${srcNode.name}`,
+            `目标阶段「${targetPhase.name}」，生成 ${newReworkNode.name}，原节点冻结为等待资源`,
+            targetPhase.id);
+          return { ...state, phases, launchDate, notifications, activityLog: [...state.activityLog, logR] };
+        }
+
+        case actionTypes.DISMISS_NOTIFICATION: {
+          notifications = state.notifications.map(n =>
+            n.id === action.notificationId ? { ...n, dismissed: true } : n
+          );
+          return { ...state, notifications };
+        }
+
+        case actionTypes.CLIENT_CONFIRM: {
+          const notifC = state.notifications.find(n => n.id === action.notificationId);
+          notifications = state.notifications.map(n =>
+            n.id === action.notificationId ? { ...n, dismissed: true, clientResponse: 'confirmed' } : n
+          );
+          const logC = createLog('client_confirm', '客户', `确认延期通知：「${notifC?.title || ''}」`,
+            `客户已同意延期安排，预计 ${notifC?.expectedRecovery || ''} 前解决`);
+          return { ...state, notifications, activityLog: [...state.activityLog, logC] };
+        }
+
+        case actionTypes.CLIENT_REJECT: {
+          const notifR = state.notifications.find(n => n.id === action.notificationId);
+          notifications = state.notifications.map(n =>
+            n.id === action.notificationId ? { ...n, dismissed: true, clientResponse: 'rejected' } : n
+          );
+          const logR = createLog('client_reject', '客户', `驳回延期通知：「${notifR?.title || ''}」`,
+            `客户驳回延期安排，要求加急处理！请项目经理立即沟通`);
+          return { ...state, notifications, activityLog: [...state.activityLog, logR] };
+        }
+
+        case actionTypes.GATE_PASS: {
+          const phaseName = state.phases.find(p => p.id === action.phaseId)?.name || '';
+          const newGates = { ...state.phaseGates, [action.phaseId]: { status: 'passed', passedAt: new Date() } };
+          const logG = createLog('batch_advance', '张伟', `「${phaseName}」阶段门审查通过`,
+            `决策：阶段门通过。${phaseName} 全部节点状态已确认，可进入下一阶段`);
+          return { ...state, phaseGates: newGates, activityLog: [...state.activityLog, logG] };
+        }
+
+        case actionTypes.TERMINATE_PROJECT: {
+          const logT = createLog('system', '张伟', '【紧急】项目已终止',
+            '智能空气炸锅 X7 项目已手动终止。所有未完成任务已冻结，阶段门状态清除。');
+          const frozenGates = {};
+          Object.keys(state.phaseGates).forEach(k => {
+            frozenGates[k] = { ...state.phaseGates[k], status: 'terminated' };
+          });
+          return {
+            ...state,
+            terminated: true,
+            phaseGates: frozenGates,
+            activityLog: [...state.activityLog, logT, {
+              id: 'log-terminate-' + Date.now(),
+              type: 'client_reject',
+              user: '系统',
+              action: '项目终止通知已推送到企业微信群',
+              detail: '所有项目成员已收到项目终止通知，请等待下一步安排。',
+              target: '',
+              timestamp: Date.now() + 500,
+            }],
+          };
+        }
+
+        case actionTypes.TICK: {
+          return { ...state, tick: state.tick + 1 };
+        }
+
+        default:
+          return state;
+      }
+    }
+
+    // =========================== COMPONENTS ===========================
+
+    // --- Icons ---
+    const StatusIcon = ({ status, size = 20 }) => {
+      const icons = {
+        completed: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#10b981"/><path d="M8 12l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+        ongoing: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#8b5cf6"/><rect x="10" y="7" width="4" height="10" rx="1" fill="#fff"/></svg>,
+        pending: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#475569"/><circle cx="12" cy="12" r="3" fill="#64748b"/></svg>,
+        delayed: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#ef4444"/><path d="M12 7v5l3 3" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>,
+        frozen: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#8b5cf6" opacity="0.6"/><rect x="9" y="6" width="2" height="12" rx="1" fill="#fff"/><rect x="13" y="6" width="2" height="12" rx="1" fill="#fff"/></svg>,
+      };
+      return icons[status] || icons.pending;
+    };
+
+    const StatusBadge = ({ status }) => {
+      const map = {
+        completed: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: '已完成' },
+        ongoing: { bg: 'bg-violet-500/20', text: 'text-violet-400', label: '进行中' },
+        pending: { bg: 'bg-slate-600/30', text: 'text-slate-400', label: '待开始' },
+        delayed: { bg: 'bg-red-500/20', text: 'text-red-400', label: '已延期' },
+        frozen: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: '等待资源' },
+      };
+      const s = map[status] || map.pending;
+      return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>{s.label}</span>;
+    };
+
+    const ChevronDown = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>;
+
+    // --- Project Header ---
+    const ProjectHeader = ({ state, dispatch, onTerminate }) => {
+      const [riskOpen, setRiskOpen] = useState(false);
+      const { done, total } = countCompleted(state.phases);
+      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+      const countdown = getCountdown(state.launchDate);
+      const activeNotifications = state.notifications.filter(n => !n.dismissed);
+      const hasDelayed = state.phases.some(p => p.nodes.some(n => n.status === 'delayed'));
+      const terminated = state.terminated;
+
+      return (
+        <div className={`rounded-xl p-5 mb-5 relative z-30 transition-all duration-500 ${
+          terminated ? 'bg-red-950/60 border-2 border-red-500/40' : 'glass-card'
+        }`}>
+          {/* Terminated banner */}
+          {terminated && (
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-6 py-1 bg-red-600 rounded-full shadow-lg shadow-red-600/30">
+              <span className="text-xs font-bold text-white tracking-wider">⚠ 项目已终止 ⚠</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Left: Project Info */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-xl font-bold text-white">智能空气炸锅 X7</h1>
+                {terminated ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse-slow">已终止</span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">进行中</span>
+                )}
+                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${terminated ? 'bg-slate-700/30 text-slate-500 border-slate-600/20' : 'bg-sky-500/10 text-sky-400 border-sky-500/20'}`}>新品</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${terminated ? 'bg-slate-700/30 text-slate-500 border-slate-600/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>量产准备中</span>
+              </div>
+              <div className="flex items-center gap-3 mt-2 text-sm text-slate-400">
+                <span>👤 负责人：<span className="text-slate-200">张伟</span></span>
+                <span>📅 启动：2026-06-01</span>
+                <span>🏷️ 项目编号：X7-2026-A01</span>
+              </div>
+            </div>
+
+            {/* Center: Progress */}
+            <div className="flex items-center gap-4 px-4 py-2 rounded-lg bg-slate-800/50 min-w-[200px]">
+              <div className="relative w-14 h-14">
+                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="#1e293b" strokeWidth="3"/>
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="url(#progGrad)" strokeWidth="3" strokeDasharray={`${(progress/100)*97.4} 97.4`} strokeLinecap="round"/>
+                  <defs>
+                    <linearGradient id="progGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#a78bfa"/>
+                      <stop offset="100%" stopColor="#7c3aed"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{progress}%</span>
+              </div>
+              <div>
+                <div className="text-xs text-slate-400">项目进度</div>
+                <div className="text-sm font-semibold text-white">{done}/{total} 任务完成</div>
+              </div>
+            </div>
+
+            {/* Countdown */}
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 ${terminated ? 'opacity-50' : ''}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={terminated ? '#64748b' : '#f59e0b'} strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <div>
+                <div className="text-xs text-slate-500">距上市倒计时</div>
+                <div className={`text-lg font-bold ${terminated ? 'text-slate-500' : countdown <= 30 ? 'text-red-400' : countdown <= 45 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {terminated ? '已终止' : countdown + '天'}
+                </div>
+              </div>
+            </div>
+
+            {/* Right area: Risk Panel + Terminate Button */}
+            <div className="flex items-center gap-2">
+              {/* Risk Panel */}
+              <div className="relative z-40">
+                <button
+                  onClick={() => setRiskOpen(!riskOpen)}
+                  disabled={terminated}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 ${
+                    terminated
+                      ? 'bg-slate-800/30 border border-slate-700/20 text-slate-600 cursor-not-allowed'
+                      : hasDelayed
+                        ? 'bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30'
+                        : 'bg-slate-700/50 border border-slate-600/30 text-slate-400'
+                  }`}
+                >
+                  {hasDelayed && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse-slow"/>}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 19h20L12 2zM12 9v4M12 17v.01"/></svg>
+                  <span className="text-sm font-medium">
+                    {terminated ? '项目已终止' : hasDelayed ? `[${activeNotifications.length}项延期] 上市倒计时${countdown}天` : '项目运行正常'}
+                  </span>
+                  {!terminated && <ChevronDown />}
+                </button>
+
+                {riskOpen && activeNotifications.length > 0 && (
+                  <div className="absolute right-0 top-full mt-2 w-96 z-[1000] animate-fade-in">
+                    <div className="rounded-xl p-4 shadow-2xl border border-red-500/40 bg-slate-800">
+                      <div className="text-sm font-semibold text-red-400 mb-3">⚠️ 需关注的风险项</div>
+                      {activeNotifications.map((notif, i) => (
+                      <div key={notif.id} className={`${i > 0 ? 'mt-3 pt-3 border-t border-slate-600/50' : ''}`}>
+                        <div className="flex items-start gap-2">
+                          <span className="text-lg">{notif.type === 'rework' ? '🔧' : '⏰'}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-slate-200">{notif.title}</div>
+                            <div className="text-xs text-slate-400 mt-1">原因：{notif.reason}</div>
+                            <div className="text-xs text-slate-400">影响：{notif.impact}</div>
+                            <div className="text-xs text-amber-400 mt-1">预计恢复：{notif.expectedRecovery}</div>
+                            <div className="text-xs text-red-400 mt-1">
+                              ⏱ 当前倒计时：{notif.currentCountdown}天
+                              {notif.originalCountdown > notif.currentCountdown && (
+                                <span className="text-slate-500 ml-1">(原{notif.originalCountdown}天)</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Terminate Button */}
+            {!terminated && (
+              <button
+                onClick={onTerminate}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 transition-all text-xs font-medium flex-shrink-0"
+                title="终止整个项目"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+                终止项目
+              </button>
+            )}
+            {terminated && (
+              <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-slate-800/50 text-slate-600 text-xs font-medium flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+                项目已终止
+              </div>
+            )}
+          </div>
+
+          {/* Mini progress bar */}
+          <div className="mt-3 h-1.5 rounded-full bg-slate-700/50 overflow-hidden">
+            <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-600 transition-all duration-500" style={{ width: `${progress}%` }}/>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Task Detail Drawer ---
+    const TaskDetailDrawer = ({ node, phaseName, onClose, onMarkDelay, onMarkCompleted, onRework }) => {
+      if (!node) return null;
+      const fmtDate = (d) => d ? `${d.getMonth()+1}月${d.getDate()}日` : '-';
+      const statusMap = { completed: '✅ 已完成', ongoing: '⏳ 进行中', pending: '⏸️ 待开始', delayed: '⛔ 已延期', frozen: '⏸️ 等待资源' };
+
+      return (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+          <div className="relative w-full max-w-md bg-dark-700 border-l border-slate-600/50 shadow-2xl animate-slide-up overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-bold text-white">{node.name}</h2>
+                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-1">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <StatusIcon status={node.status} size={24}/>
+                  <span className="text-sm font-medium">{statusMap[node.status] || '未知'}</span>
+                  <StatusBadge status={node.status}/>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <div className="text-xs text-slate-400">所属阶段</div>
+                    <div className="text-sm text-slate-200 mt-1">{phaseName}</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <div className="text-xs text-slate-400">计划开始</div>
+                    <div className="text-sm text-slate-200 mt-1">{fmtDate(node.planStart)}</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <div className="text-xs text-slate-400">计划结束</div>
+                    <div className="text-sm text-slate-200 mt-1">{fmtDate(node.planEnd)}</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <div className="text-xs text-slate-400">前置依赖</div>
+                    <div className="text-sm text-slate-200 mt-1">{node.dependsOn.length > 0 ? node.dependsOn.length + ' 个' : '无'}</div>
+                  </div>
+                </div>
+
+                {node.delay && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <div className="text-sm font-medium text-red-400 mb-2">⛔ 延期详情</div>
+                    <div className="text-xs text-slate-300">原因：{node.delay.reason}</div>
+                    <div className="text-xs text-slate-300 mt-1">预计恢复：{fmtDate(node.delay.expectedRecovery)}</div>
+                    <div className="text-xs text-amber-400 mt-1">影响天数：{node.delay.impactDays} 天</div>
+                  </div>
+                )}
+
+                {node.reworkV2Id && (
+                  <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+                    <div className="text-sm font-medium text-orange-400">🔄 已发起返修 (V2)</div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="pt-4 border-t border-slate-600/30 space-y-2">
+                  {/* Mark as completed — available for unresolved nodes */}
+                  {(node.status === 'delayed' || node.status === 'frozen' || node.status === 'ongoing') && (
+                    <button
+                      onClick={() => { onMarkCompleted(node.id); onClose(); }}
+                      className="w-full px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 rounded-lg text-sm font-medium transition-all"
+                    >
+                      ✅ 标记为已完成
+                    </button>
+                  )}
+                  {(node.status === 'ongoing' || node.status === 'pending') && (
+                    <button
+                      onClick={() => { onMarkDelay(node.id); onClose(); }}
+                      className="w-full px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 rounded-lg text-sm font-medium transition-all"
+                    >
+                      ⛔ 标记为延期（异常上报）
+                    </button>
+                  )}
+                  {node.status === 'pending' && (
+                    <button
+                      onClick={() => { onRework(node.id); onClose(); }}
+                      className="w-full px-4 py-2.5 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-400 rounded-lg text-sm font-medium transition-all"
+                    >
+                      🔧 发起返修变更
+                    </button>
+                  )}
+                  {/* Show solution hint for delayed nodes */}
+                  {node.status === 'delayed' && node.delay && (
+                    <div className="text-xs text-slate-500 bg-slate-800/50 rounded-lg px-3 py-2">
+                      💡 问题解决后点击上方「✅ 标记为已完成」闭环，系统会自动清除延期标记并记录修复时间
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Delay Modal ---
+    const DelayModal = ({ nodeId, phases, onClose, onSubmit }) => {
+      const node = getNodeById(phases, nodeId);
+      const [reason, setReason] = useState('');
+      const [recoveryDate, setRecoveryDate] = useState('');
+      const [impactDays, setImpactDays] = useState(3);
+      const [error, setError] = useState('');
+
+      if (!node) return null;
+
+      const handleSubmit = () => {
+        if (!reason.trim()) { setError('请填写延期原因'); return; }
+        if (!recoveryDate) { setError('请选择预计恢复日期'); return; }
+        const recovery = new Date(recoveryDate);
+        if (recovery < TODAY) { setError('恢复日期不能早于今天'); return; }
+        setError('');
+        onSubmit(nodeId, reason.trim(), recovery, impactDays);
+      };
+
+      const defaultDate = node.planEnd > TODAY ? dateStr(node.planEnd) : dateStr(addDays(TODAY, 3));
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+          <div className="relative w-full max-w-md bg-dark-700 border border-slate-600/50 rounded-xl shadow-2xl animate-fade-in p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">⛔ 延期异常上报</h2>
+              <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-slate-800/50 rounded-lg">
+              <div className="text-sm text-slate-400">节点</div>
+              <div className="text-sm font-medium text-white mt-1">{node.name}</div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">延期原因 <span className="text-red-400">*</span></label>
+                <textarea
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                  placeholder="请输入延期原因，如：分模线问题、模具开裂..."
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 resize-none h-20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">预计恢复日期 <span className="text-red-400">*</span></label>
+                <input
+                  type="date"
+                  value={recoveryDate || defaultDate}
+                  onChange={e => setRecoveryDate(e.target.value)}
+                  min={dateStr(TODAY)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">预估影响天数</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 5, 7, 10].map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setImpactDays(d)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        impactDays === d
+                          ? 'bg-red-500/30 border border-red-500/50 text-red-300'
+                          : 'bg-slate-800 border border-slate-600 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{d}天</button>
+                  ))}
+                </div>
+              </div>
+
+              {error && <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</div>}
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-all">取消</button>
+                <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-300 rounded-lg text-sm font-medium transition-all">提交延期</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Rework Modal ---
+    const ReworkModal = ({ sourceNodeId, phases, onClose, onSubmit }) => {
+      const srcNode = getNodeById(phases, sourceNodeId);
+      const [targetPhaseId, setTargetPhaseId] = useState('');
+      const [error, setError] = useState('');
+
+      if (!srcNode) return null;
+
+      const validTargets = phases.filter(p => p.id !== srcNode.phaseId);
+
+      const handleSubmit = () => {
+        if (!targetPhaseId) { setError('请选择需要返修的目标阶段'); return; }
+        setError('');
+        onSubmit(sourceNodeId, targetPhaseId);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+          <div className="relative w-full max-w-md bg-dark-700 border border-slate-600/50 rounded-xl shadow-2xl animate-fade-in p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">🔧 发起返修变更</h2>
+              <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-slate-800/50 rounded-lg">
+              <div className="text-xs text-slate-400">返修来源</div>
+              <div className="text-sm font-medium text-white mt-1">{srcNode.name}</div>
+              <div className="text-xs text-slate-400 mt-1">
+                所属阶段：{phases.find(p => p.id === srcNode.phaseId)?.name}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">选择需要返修的目标阶段 <span className="text-red-400">*</span></label>
+              <div className="space-y-2">
+                {validTargets.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setTargetPhaseId(p.id)}
+                    className={`w-full px-4 py-3 rounded-lg text-sm text-left transition-all ${
+                      targetPhaseId === p.id
+                        ? 'bg-orange-500/20 border border-orange-500/50 text-orange-300'
+                        : 'bg-slate-800 border border-slate-600 text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    <div className="font-medium">{p.name}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">{p.nodes.length} 个节点</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-4">
+              <div className="text-xs text-amber-400">系统将自动执行：</div>
+              <ul className="text-xs text-slate-400 mt-1 space-y-0.5">
+                <li>✅ 在目标阶段创建 V2 返修子节点</li>
+                <li>⏸️ 当前节点「{srcNode.name}」冻结为等待资源</li>
+                <li>🔄 并行不受影响节点保持流转</li>
+                <li>🔔 推送风险通知到客户协同视窗</li>
+              </ul>
+            </div>
+
+            {error && <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 mb-4">{error}</div>}
+
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-all">取消</button>
+              <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-orange-500/30 hover:bg-orange-500/40 border border-orange-500/50 text-orange-300 rounded-lg text-sm font-medium transition-all">确认发起返修</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Task Node Card ---
+    const TaskNode = ({ node, phaseColor, phaseName, onClick, onMarkCompleted }) => {
+      const fmt = (d) => d ? `${d.getMonth()+1}/${d.getDate()}` : '-';
+      const isDelayed = node.status === 'delayed';
+      const isRework = node.isRework;
+      const isFrozen = node.status === 'frozen';
+      const canQuickComplete = (node.status === 'ongoing' || node.status === 'delayed' || node.status === 'frozen');
+
+      return (
+        <div
+          onClick={() => onClick(node)}
+          className={`node-card relative group p-3 rounded-xl cursor-pointer transition-all ${
+            isDelayed
+              ? 'bg-red-500/10 border-2 border-red-500/50 delay-pulse'
+              : isRework
+                ? 'bg-orange-500/10 border border-orange-500/40 rework-flash'
+                : isFrozen
+                  ? 'bg-purple-500/10 border border-purple-500/30'
+                  : node.status === 'completed'
+                    ? 'bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-500/40'
+                    : node.status === 'ongoing'
+                      ? 'bg-slate-700/40 border border-slate-600/40 hover:border-violet-500/40'
+                      : 'bg-slate-800/30 border border-slate-700/30 hover:border-slate-600/50'
+          }`}
+        >
+          {/* Top-right badges (existing) */}
+          {isRework && (
+            <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-orange-500 rounded-full text-xs font-bold text-white shadow-lg z-10">
+              V2
+            </div>
+          )}
+          {isDelayed && (
+            <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg z-10">
+              <span className="text-xs font-bold text-white">!</span>
+            </div>
+          )}
+          {isFrozen && (
+            <div className="absolute -top-2 -right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center shadow-lg z-10">
+              <span className="text-xs text-white">⏸️</span>
+            </div>
+          )}
+
+          {/* Quick complete button — hover to reveal */}
+          {canQuickComplete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onMarkCompleted(node.id); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-700/80 border border-slate-500/50 hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:scale-110 z-20 shadow-lg"
+              title="快捷标记为已完成"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+          )}
+
+          <div className="flex items-start gap-2.5">
+            <StatusIcon status={node.status} size={18}/>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-slate-100 truncate">{node.name}</div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className="text-xs text-slate-500">📅</span>
+                <span className="text-xs text-slate-400">{fmt(node.planStart)} - {fmt(node.planEnd)}</span>
+              </div>
+              <div className="mt-1.5">
+                <StatusBadge status={node.status}/>
+              </div>
+              {node.delay && (
+                <div className="mt-1.5 bg-red-500/15 rounded px-2 py-1">
+                  <div className="text-xs text-red-300">⚠️ {node.delay.reason}</div>
+                  <div className="text-xs text-amber-300">恢复日：{node.delay.expectedRecovery ? `${node.delay.expectedRecovery.getMonth()+1}/${node.delay.expectedRecovery.getDate()}` : '-'}</div>
+                </div>
+              )}
+              {isRework && (
+                <div className="mt-1.5 bg-orange-500/15 rounded px-2 py-1">
+                  <div className="text-xs text-orange-300">🔄 返修进行中</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Phase Kanban Column ---
+    const PhaseColumn = ({ phase, allPhases, phaseGates, onGateReview, onNodeClick, onMarkCompleted }) => {
+      const { done, total } = { done: phase.nodes.filter(n => n.status === 'completed').length, total: phase.nodes.length };
+      const phaseProgress = total > 0 ? Math.round((done / total) * 100) : 0;
+      const hasBlocker = phase.nodes.some(n => n.status === 'delayed' || n.status === 'frozen');
+      const gatePassed = phaseGates?.[phase.id]?.status === 'passed';
+
+      return (
+        <div className="phase-scroll flex-shrink-0 w-[280px] md:w-[300px]">
+          <div className={`glass-card rounded-xl overflow-hidden h-full transition-all duration-300 ${
+            gatePassed ? 'ring-1 ring-emerald-500/30' : ''
+          }`}>
+            {/* Phase header */}
+            <div className="px-4 py-3 border-b border-slate-600/40" style={{ borderLeftColor: phase.color, borderLeftWidth: 3 }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-sm font-bold text-white truncate">{phase.name}</h3>
+                  {hasBlocker && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse-slow flex-shrink-0" title="存在阻塞项"/>}
+                  {gatePassed && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">阶段门已过</span>}
+                </div>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                  phaseProgress === 100 ? 'bg-emerald-500/20 text-emerald-400' :
+                  phaseProgress > 0 ? 'bg-violet-500/20 text-violet-400' :
+                  'bg-slate-600/30 text-slate-400'
+                }`}>{done}/{total}</span>
+              </div>
+              {/* Phase mini progress */}
+              <div className="mt-2 h-1 rounded-full bg-slate-700/50 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${phaseProgress}%`, backgroundColor: gatePassed ? '#10b981' : phase.color }}/>
+              </div>
+            </div>
+
+            {/* Nodes */}
+            <div className="p-3 space-y-2.5">
+              {phase.nodes.map(node => (
+                <TaskNode
+                  key={node.id}
+                  node={node}
+                  phaseColor={phase.color}
+                  phaseName={phase.name}
+                  onClick={onNodeClick}
+                  onMarkCompleted={onMarkCompleted}
+                />
+              ))}
+            </div>
+
+            {/* Gate Review Button */}
+            <div className="px-3 pb-3">
+              <button
+                onClick={() => onGateReview(phase.id)}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
+                  gatePassed
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 cursor-default'
+                    : hasBlocker
+                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
+                      : 'bg-violet-500/10 border-violet-500/25 text-violet-300 hover:bg-violet-500/20'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1.5">
+                  {gatePassed ? (
+                    <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>✅ 阶段门已通过</span></>
+                  ) : (
+                    <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>阶段门审查</span>{hasBlocker && <span className="text-[10px] px-1 py-0.5 rounded bg-red-500/20 text-red-300 ml-1">有阻塞</span>}</>
+                  )}
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Gate Review Modal ---
+    const GateReviewModal = ({ phaseId, phases, phaseGates, onClose, onPassGate }) => {
+      const phase = phases.find(p => p.id === phaseId);
+      if (!phase) return null;
+
+      const nodes = phase.nodes;
+      const { done, total } = { done: nodes.filter(n => n.status === 'completed').length, total: nodes.length };
+      const blockers = nodes.filter(n => n.status === 'delayed' || n.status === 'frozen');
+      const ongoing = nodes.filter(n => n.status === 'ongoing');
+      const gateInfo = phaseGates[phaseId];
+
+      const fmtDate = (d) => d ? `${d.getMonth()+1}月${d.getDate()}日` : '-';
+      const statusLabel = (s) => ({ completed: '✅ 已完成', ongoing: '⏳ 进行中', pending: '⏸️ 待开始', delayed: '⛔ 已延期', frozen: '⏸️ 冻结' })[s] || s;
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+          <div className="relative w-full max-w-2xl bg-dark-700 border border-slate-600/50 rounded-xl shadow-2xl animate-fade-in max-h-[85vh] flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-600/30 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: phase.color + '20' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={phase.color} strokeWidth="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">阶段门审查：{phase.name}</h2>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    审查状态：
+                    {gateInfo?.status === 'passed'
+                      ? <span className="text-emerald-400 font-medium"> ✅ 已通过（{fmtDate(gateInfo.passedAt)}）</span>
+                      : <span className="text-amber-400 font-medium"> ⏳ 待审查</span>
+                    }
+                  </div>
+                </div>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+              {/* Progress */}
+              <div className="bg-slate-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-slate-200">阶段进度</span>
+                  <span className="text-sm text-slate-400">{done}/{total} 节点完成</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-700/50 overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(done/total)*100}%`, backgroundColor: phase.color }}/>
+                </div>
+              </div>
+
+              {/* Node Checklist */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-200 mb-3">📋 节点审查清单</h4>
+                <div className="space-y-2">
+                  {nodes.map(node => (
+                    <div key={node.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
+                      node.status === 'delayed' ? 'bg-red-500/10 border border-red-500/20' :
+                      node.status === 'frozen' ? 'bg-purple-500/10 border border-purple-500/20' :
+                      node.status === 'ongoing' ? 'bg-violet-500/5 border border-violet-500/10' :
+                      node.status === 'completed' ? 'bg-emerald-500/5 border border-emerald-500/10' :
+                      'bg-slate-800/30 border border-slate-700/20'
+                    }`}>
+                      <StatusIcon status={node.status} size={18}/>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-slate-200">{node.name}</span>
+                          <StatusBadge status={node.status}/>
+                          {node.isRework && <span className="px-1 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-300 font-bold">V2 返修</span>}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          计划：{fmtDate(node.planStart)} - {fmtDate(node.planEnd)}
+                          {node.delay && <span className="text-red-400 ml-2">⚠️ {node.delay.reason}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Blockers */}
+              {blockers.length > 0 && (
+                <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-red-400 mb-2">⛔ 阻塞项（{blockers.length}）</h4>
+                  <div className="space-y-2">
+                    {blockers.map(b => (
+                      <div key={b.id} className="text-xs text-slate-300 flex items-start gap-2">
+                        <span>•</span>
+                        <div>
+                          <span className="font-medium">{b.name}</span>
+                          {b.delay && <span className="text-red-300 ml-1">— {b.delay.reason}</span>}
+                          {b.status === 'frozen' && <span className="text-purple-300 ml-1">— 等待 V2 返修</span>}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="mt-2 text-xs text-amber-400">
+                      💡 建议：先解决上述阻塞项再通过阶段门，或标记为"有条件通过"并设定跟踪项
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Gate Decision */}
+              <div className="bg-slate-800/30 border border-slate-600/30 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-slate-200 mb-3">🎯 阶段门决策</h4>
+
+                {gateInfo?.status === 'passed' ? (
+                  <div>
+                    <div className="flex items-center gap-2 text-sm text-emerald-400 mb-2">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      <span className="font-bold">此阶段门已于 {fmtDate(gateInfo.passedAt)} 通过</span>
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      决策已记录，已推送到企业微信群。后续阶段工作可正常开展。
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-xs text-slate-400 mb-3 space-y-1">
+                      <div>💡 通过阶段门表示：本阶段工作已确认，管理决策同意进入下一阶段</div>
+                      <div className="text-slate-500">操作后将：</div>
+                      <ul className="text-slate-500 list-disc pl-4 space-y-0.5">
+                        <li>阶段卡片显示「✅ 阶段门已过」状态标识</li>
+                        <li>阶段门状态从「待审查」变为「已通过」</li>
+                        <li>记录决策日志并推送到企业微信群通知全员</li>
+                      </ul>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => { onPassGate(phaseId); onClose(); }}
+                        className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          blockers.length > 0
+                            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
+                            : 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
+                        }`}
+                      >
+                        {blockers.length > 0 ? '⚠️ 有条件通过阶段门' : '✅ 确认通过阶段门'}
+                      </button>
+                      <button
+                        onClick={onClose}
+                        className="px-4 py-2.5 rounded-lg text-sm font-medium bg-slate-700 border border-slate-600/30 text-slate-300 hover:bg-slate-600 transition-all"
+                      >
+                        暂不通过，关闭
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Terminate Project Confirm Modal (二重确认) ---
+    const TerminateConfirmModal = ({ onClose, onConfirm }) => {
+      const [step, setStep] = useState(1);
+      const [input, setInput] = useState('');
+      const [error, setError] = useState('');
+
+      const handleConfirm = () => {
+        if (step === 1) {
+          setStep(2);
+          return;
+        }
+        if (input !== '终止') {
+          setError('请输入「终止」以确认');
+          return;
+        }
+        onConfirm();
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
+          <div className="relative w-full max-w-md bg-dark-700 border border-slate-600/50 rounded-xl shadow-2xl animate-fade-in p-6">
+            {step === 1 ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-bold text-white">确认终止项目</h2>
+                  </div>
+                  <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-4">
+                  <div className="text-sm font-bold text-red-400 mb-2">⚠️ 此操作不可撤销！</div>
+                  <ul className="text-xs text-slate-300 space-y-1.5">
+                    <li>• 所有未完成任务将被冻结</li>
+                    <li>• 阶段门状态将被清除</li>
+                    <li>• 上市倒计时停止</li>
+                    <li>• 所有项目成员将通过企业微信收到通知</li>
+                    <li>• 项目数据将被归档</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-all">取消</button>
+                  <button onClick={handleConfirm} className="flex-1 px-4 py-2.5 bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-300 rounded-lg text-sm font-medium transition-all">下一步</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-bold text-white">二次确认</h2>
+                  </div>
+                  <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+
+                <div className="text-sm text-slate-300 mb-3">
+                  请输入 <span className="text-red-400 font-bold">「终止」</span> 以确认操作：
+                </div>
+                <input
+                  type="text"
+                  value={input}
+                  onChange={e => { setInput(e.target.value); setError(''); }}
+                  onKeyDown={e => { if (e.key === 'Enter' && input === '终止') handleConfirm(); }}
+                  placeholder="请输入「终止」"
+                  className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30 mb-3"
+                  autoFocus
+                />
+                {error && <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 mb-3">{error}</div>}
+
+                <div className="flex gap-3">
+                  <button onClick={() => setStep(1)} className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-all">返回</button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={input !== '终止'}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      input === '终止'
+                        ? 'bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-300'
+                        : 'bg-slate-800/50 border border-slate-700/30 text-slate-600 cursor-not-allowed'
+                    }`}
+                  >
+                    确认终止
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // --- WeCom Push Toast (模拟企业微信机器人推送) ---
+    const WecomToast = ({ logs, onDismiss }) => {
+      const latest = logs.length > 0 ? logs[logs.length - 1] : null;
+      if (!latest || ['system', 'init'].includes(latest.type)) return null;
+      const [dismissed, setDismissed] = useState(false);
+
+      useEffect(() => {
+        setDismissed(false);
+        const timer = setTimeout(() => setDismissed(true), 6000);
+        return () => clearTimeout(timer);
+      }, [latest?.id]);
+
+      if (dismissed) return null;
+
+      const typeStyles = {
+        client_confirm: { border: 'border-l-emerald-500', icon: '✅', bg: 'from-emerald-500/10' },
+        client_reject: { border: 'border-l-red-500', icon: '⛔', bg: 'from-red-500/10' },
+        delay: { border: 'border-l-red-500', icon: '⏰', bg: 'from-red-500/10' },
+        rework: { border: 'border-l-orange-500', icon: '🔧', bg: 'from-orange-500/10' },
+        batch_advance: { border: 'border-l-violet-500', icon: '▶', bg: 'from-violet-500/10' },
+      };
+      const s = typeStyles[latest.type] || { border: 'border-l-slate-500', icon: '📢', bg: 'from-slate-500/10' };
+
+      return (
+        <div className="fixed top-4 right-4 z-[9999] animate-slide-up max-w-[400px] min-w-[320px]">
+          <div className={`rounded-xl shadow-2xl border border-slate-600/50 bg-gradient-to-r ${s.bg} to-slate-800 overflow-hidden`}>
+            {/* Head */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/80 border-b border-slate-600/30">
+              <div className="w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+              </div>
+              <span className="text-xs font-semibold text-emerald-400">企业微信 · 项目群</span>
+              <span className="flex-1"/>
+              <button onClick={() => setDismissed(true)} className="text-xs text-slate-500 hover:text-slate-300">✕</button>
+            </div>
+            {/* Body */}
+            <div className="px-3 py-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={`w-2 h-2 rounded-full ${latest.type === 'client_reject' ? 'bg-red-500 animate-pulse-slow' : 'bg-emerald-500'}`}/>
+                <span className="text-xs font-bold text-white">
+                  「智能空气炸锅 X7」项目通知
+                </span>
+              </div>
+              <div className="text-sm font-bold text-slate-100 mb-1">
+                {s.icon} {latest.action}
+              </div>
+              <div className="text-xs text-slate-400 mb-1">{latest.detail}</div>
+              <div className="flex items-center gap-3 text-xs text-slate-500">
+                <span>👤 {latest.user}</span>
+                <span>🕐 {new Date(latest.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div className="mt-2 pt-2 border-t border-slate-600/30 flex items-center gap-2 text-xs">
+                <span className="text-slate-500">📨 已推送到「X7 项目协同群」</span>
+                <span className="w-1 h-1 rounded-full bg-slate-600"/>
+                <span className="text-emerald-500">3 人已读</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Activity Log Panel ---
+    const ActivityLogPanel = ({ logs }) => {
+      const [open, setOpen] = useState(false);
+      const logList = useMemo(() => [...logs].reverse(), [logs]);
+
+      const typeMap = {
+        client_confirm: { icon: '✅', color: 'text-emerald-400', label: '客户确认' },
+        client_reject: { icon: '❌', color: 'text-red-400', label: '客户驳回' },
+        delay: { icon: '⛔', color: 'text-red-400', label: '延期上报' },
+        rework: { icon: '🔧', color: 'text-orange-400', label: '返修发起' },
+        batch_advance: { icon: '▶', color: 'text-violet-400', label: '批量推进' },
+        system: { icon: 'ℹ️', color: 'text-blue-400', label: '系统' },
+      };
+
+      return (
+        <div className="glass-card rounded-xl overflow-hidden">
+          <button
+            onClick={() => setOpen(!open)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700/30 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span className="text-sm font-semibold text-slate-200">操作记录</span>
+              <span className="px-1.5 py-0.5 rounded text-xs bg-slate-600/30 text-slate-400">{logs.length}</span>
+              <span className="px-1.5 py-0.5 rounded text-xs bg-green-500/20 text-green-400">企业微信群同步</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {logs.length > 1 && (
+                <span className="text-xs text-slate-500">
+                  最新：{new Date(logs[logs.length-1]?.timestamp || Date.now()).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <svg className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </div>
+          </button>
+
+          {open && (
+            <div className="max-h-[320px] overflow-y-auto border-t border-slate-600/30">
+              {logList.length === 0 && (
+                <div className="px-4 py-6 text-center text-sm text-slate-500">暂无操作记录</div>
+              )}
+              {logList.map(log => {
+                const t = typeMap[log.type] || { icon: '📋', color: 'text-slate-400', label: '操作' };
+                return (
+                  <div key={log.id} className="px-4 py-2.5 border-b border-slate-600/20 hover:bg-slate-700/20 transition-colors last:border-b-0">
+                    <div className="flex items-start gap-2.5">
+                      <span className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                        log.type.startsWith('client') ? 'bg-sky-500/10' :
+                        log.type === 'delay' ? 'bg-red-500/10' :
+                        log.type === 'rework' ? 'bg-orange-500/10' :
+                        'bg-slate-600/20'
+                      }`}>{t.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xs font-semibold ${t.color}`}>{t.label}</span>
+                          {log.type === 'client_reject' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500/20 text-red-300 font-bold animate-pulse-slow">⚠️ 需紧急处理</span>
+                          )}
+                          {log.type === 'rework' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-300">V2</span>
+                          )}
+                          <span className="text-xs text-slate-500">·</span>
+                          <span className="text-xs text-slate-200 font-medium">{log.action}</span>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">{log.detail}</div>
+                        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-500">
+                          <span>👤 {log.user}</span>
+                          <span>🕐 {new Date(log.timestamp).toLocaleString('zh-CN')}</span>
+                          <span className="text-emerald-500/60">📨 已同步企业微信群</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // --- Client Notification Panel ---
+    const ClientNotificationPanel = ({ notifications, onDismiss, onConfirm, onReject }) => {
+      const [collapsed, setCollapsed] = useState({});
+      // Show all notifications; active = not yet confirmed/rejected
+      const allItems = notifications;
+      const unresolved = allItems.filter(n => n.clientResponse !== 'confirmed' && n.clientResponse !== 'rejected');
+      if (allItems.length === 0) return null;
+
+      const toggleCollapse = (id) => {
+        setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
+      };
+      const isCollapsed = (id) => collapsed[id] === true;
+
+      return (
+        <div className="mt-5">
+          <div className="flex items-center gap-2 mb-3">
+            {unresolved.length > 0 && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse-slow"/>}
+            <h3 className="text-sm font-semibold text-slate-200">
+              客户协同通知栏
+              {unresolved.length > 0 && <span className="text-slate-400 font-normal ml-1">— {unresolved.length} 条待处理</span>}
+              <span className="text-slate-500 text-xs font-normal ml-2">共 {allItems.length} 条</span>
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {allItems.map((n, i) => {
+              const collapsedMode = isCollapsed(n.id);
+
+              if (collapsedMode) {
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => toggleCollapse(n.id)}
+                    className="flex items-center gap-3 px-4 py-2 rounded-lg cursor-pointer transition-all bg-slate-800/30 border border-slate-700/20 hover:bg-slate-700/30 hover:border-slate-600/30"
+                  >
+                    <span className="text-sm">{n.type === 'rework' ? '🔧' : '🔔'}</span>
+                    <span className="text-xs text-slate-400 truncate flex-1">{n.title}</span>
+                    {n.clientResponse === 'confirmed' && <span className="text-[10px] text-emerald-500 flex-shrink-0">✅ 已确认</span>}
+                    {n.clientResponse === 'rejected' && <span className="text-[10px] text-red-400 flex-shrink-0">❌ 已驳回</span>}
+                    {!n.clientResponse && <span className="text-[10px] text-amber-400 flex-shrink-0">⏸️ 已忽略</span>}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" className="flex-shrink-0"><path d="M18 15l-6-6-6 6"/></svg>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={n.id}
+                  className="rounded-xl p-4 border-l-4 animate-slide-up transition-all"
+                  style={{
+                    borderLeftColor: n.clientResponse === 'confirmed' ? '#10b981' : n.clientResponse === 'rejected' ? '#ef4444' : n.type === 'rework' ? '#f97316' : '#ef4444',
+                    backgroundColor: n.clientResponse
+                      ? 'rgba(30, 41, 59, 0.5)'
+                      : 'rgba(30, 41, 59, 0.8)',
+                    borderWidth: 1,
+                    borderColor: n.clientResponse
+                      ? 'rgba(51, 65, 85, 0.3)'
+                      : 'rgba(51, 65, 85, 0.5)',
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl mt-0.5">{n.type === 'rework' ? '🔧' : '🔔'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-slate-100">
+                        {n.type === 'rework' ? '【关键返修提醒】' : '【关键风险提醒】'}{n.title}
+                      </div>
+                      <div className="mt-2 space-y-1 text-xs">
+                        <div className="text-slate-400">* 原因：{n.reason}</div>
+                        <div className="text-slate-400">* 影响：{n.impact}</div>
+                        <div className="text-slate-400">* 预计恢复时间：{n.expectedRecovery}</div>
+                        <div className="text-red-400 font-medium">
+                          * 当前倒计时：<span className="text-lg font-bold">{n.currentCountdown}天</span>
+                          {n.originalCountdown > n.currentCountdown && (
+                            <span className="text-slate-500 ml-1">（原{n.originalCountdown}天）</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action buttons — only show if still unresolved */}
+                      {!n.clientResponse && (
+                        <div className="flex items-center gap-2 mt-3">
+                          <button
+                            onClick={() => onConfirm(n.id)}
+                            className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 rounded-lg text-xs font-medium transition-all"
+                          >
+                            ✅ 一键确认延期
+                          </button>
+                          <button
+                            onClick={() => onReject(n.id)}
+                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 rounded-lg text-xs font-medium transition-all"
+                          >
+                            ❌ 驳回并要求加急
+                          </button>
+                          <button
+                            onClick={() => { onDismiss(n.id); toggleCollapse(n.id); }}
+                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded-lg text-xs transition-all ml-auto"
+                          >
+                            稍后处理 ↕
+                          </button>
+                        </div>
+                      )}
+                      {n.clientResponse === 'confirmed' && (
+                        <div className="mt-2 text-xs text-emerald-400">✅ 客户已确认延期通知</div>
+                      )}
+                      {n.clientResponse === 'rejected' && (
+                        <div className="mt-2 text-xs text-red-400">❌ 客户已驳回并要求加急处理</div>
+                      )}
+
+                      {/* Expand/collapse toggle when resolved */}
+                      {n.clientResponse && (
+                        <button
+                          onClick={() => toggleCollapse(n.id)}
+                          className="mt-2 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                        >
+                          ↕ 收起
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {unresolved.length === 0 && (
+            <div className="text-xs text-slate-500 mt-2">
+              所有通知已处理。点击上方已折叠的记录可查看详情和重新操作。
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // --- Auto Status Checker Helper ---
+    const runAutoTransition = (phases) => {
+      let changed = false;
+      const result = phases.map(phase => {
+        const newNodes = phase.nodes.map(n => {
+          if (n.status === 'pending' && n.planStart <= TODAY && !n.delay) {
+            changed = true;
+            return { ...n, status: 'ongoing' };
+          }
+          return n;
+        });
+        return { ...phase, nodes: newNodes };
+      });
+      return { phases: result, changed };
+    };
+
+    // =========================== MAIN APP ===========================
+    const App = () => {
+      const [state, dispatch] = useReducer(projectReducer, null, initState);
+      const [selectedNode, setSelectedNode] = useState(null);
+      const [delayModalNodeId, setDelayModalNodeId] = useState(null);
+      const [reworkSourceNodeId, setReworkSourceNodeId] = useState(null);
+      const [sidebarOpen, setSidebarOpen] = useState(false);
+      const [gateReviewPhaseId, setGateReviewPhaseId] = useState(null);
+      const [terminateModalOpen, setTerminateModalOpen] = useState(false);
+
+      // Live countdown tick
+      useEffect(() => {
+        const interval = setInterval(() => dispatch({ type: actionTypes.TICK }), 60000);
+        return () => clearInterval(interval);
+      }, []);
+
+      // Auto transition on mount (with delay for visual effect)
+      useEffect(() => {
+        const { phases: newPhases, changed } = runAutoTransition(state.phases);
+        if (changed) {
+          // We can't directly set state, but we can dispatch a custom action
+          // Actually, let's handle auto-transition in the initial state and ignore dynamic since it's a demo
+        }
+      }, []);
+
+      const handleNodeClick = useCallback((node) => {
+        setSelectedNode(node);
+        setSidebarOpen(true);
+      }, []);
+
+      const handleGateReview = useCallback((phaseId) => {
+        setGateReviewPhaseId(phaseId);
+      }, []);
+
+      const handlePassGate = useCallback((phaseId) => {
+        dispatch({ type: actionTypes.GATE_PASS, phaseId });
+      }, []);
+
+      const handleTerminateProject = useCallback(() => {
+        dispatch({ type: actionTypes.TERMINATE_PROJECT });
+        setTerminateModalOpen(false);
+      }, []);
+
+      const handleMarkDelay = useCallback((nodeId) => {
+        setDelayModalNodeId(nodeId);
+      }, []);
+
+      const handleMarkCompleted = useCallback((nodeId) => {
+        dispatch({ type: actionTypes.MARK_COMPLETED, nodeId });
+      }, []);
+
+      const handleDelaySubmit = useCallback((nodeId, reason, recoveryDate, impactDays) => {
+        dispatch({ type: actionTypes.MARK_DELAYED, nodeId, reason, expectedRecovery: recoveryDate, impactDays });
+        setDelayModalNodeId(null);
+      }, []);
+
+      const handleRework = useCallback((nodeId) => {
+        setReworkSourceNodeId(nodeId);
+      }, []);
+
+      const handleReworkSubmit = useCallback((sourceNodeId, targetPhaseId) => {
+        dispatch({ type: actionTypes.CREATE_REWORK, sourceNodeId, targetPhaseId });
+        setReworkSourceNodeId(null);
+      }, []);
+
+      const { done, total } = countCompleted(state.phases);
+      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      return (
+        <div className="min-h-screen bg-dark-800">
+          <div className="max-w-[1600px] mx-auto px-4 py-5">
+            {/* Top Header */}
+            <ProjectHeader state={state} dispatch={dispatch} onTerminate={() => setTerminateModalOpen(true)} />
+
+            {/* Kanban Board */}
+            <div className="flex gap-4 overflow-x-auto pb-4 kanban-scroll phase-wrapper">
+              {state.phases.map(phase => (
+                <PhaseColumn
+                  key={phase.id}
+                  phase={phase}
+                  allPhases={state.phases}
+                  phaseGates={state.phaseGates}
+                  onGateReview={handleGateReview}
+                  onNodeClick={handleNodeClick}
+                  onMarkCompleted={handleMarkCompleted}
+                />
+              ))}
+            </div>
+
+            {/* Client Notification Panel */}
+            <ClientNotificationPanel
+              notifications={state.notifications}
+              onDismiss={(id) => dispatch({ type: actionTypes.DISMISS_NOTIFICATION, notificationId: id })}
+              onConfirm={(id) => dispatch({ type: actionTypes.CLIENT_CONFIRM, notificationId: id })}
+              onReject={(id) => dispatch({ type: actionTypes.CLIENT_REJECT, notificationId: id })}
+            />
+
+            {/* Summary Stats */}
+            <div className="mt-5 glass-card rounded-xl p-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500"/>
+                    <span className="text-slate-400">已完成</span>
+                    <span className="text-white font-medium">{done}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="w-3 h-3 rounded-full bg-violet-500"/>
+                    <span className="text-slate-400">进行中</span>
+                    <span className="text-white font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'ongoing').length, 0)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="w-3 h-3 rounded-full bg-red-500"/>
+                    <span className="text-slate-400">已延期</span>
+                    <span className="text-white font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'delayed').length, 0)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="w-3 h-3 rounded-full bg-purple-500"/>
+                    <span className="text-slate-400">冻结/等待</span>
+                    <span className="text-white font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'frozen').length, 0)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="w-3 h-3 rounded-full bg-slate-500"/>
+                    <span className="text-slate-400">待开始</span>
+                    <span className="text-white font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'pending').length, 0)}</span>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-500">
+                  总计 {total} 个任务节点 · 距上市倒计时 {getCountdown(state.launchDate)} 天 · 目标上市日期：{state.launchDate}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* WeCom Push Toast (fixed top-right) */}
+          <WecomToast logs={state.activityLog} />
+
+          {/* Activity Log */}
+          <div className="max-w-[1600px] mx-auto px-4 pb-5">
+            <ActivityLogPanel logs={state.activityLog} />
+          </div>
+
+          {/* Sidebar Drawer */}
+          {sidebarOpen && selectedNode && (
+            <TaskDetailDrawer
+              node={selectedNode}
+              phaseName={state.phases.find(p => p.nodes.some(n => n.id === selectedNode.id))?.name || ''}
+              onClose={() => { setSidebarOpen(false); setSelectedNode(null); }}
+              onMarkDelay={handleMarkDelay}
+              onMarkCompleted={handleMarkCompleted}
+              onRework={handleRework}
+            />
+          )}
+
+          {/* Delay Modal */}
+          {delayModalNodeId && (
+            <DelayModal
+              nodeId={delayModalNodeId}
+              phases={state.phases}
+              onClose={() => setDelayModalNodeId(null)}
+              onSubmit={handleDelaySubmit}
+            />
+          )}
+
+          {/* Rework Modal */}
+          {reworkSourceNodeId && (
+            <ReworkModal
+              sourceNodeId={reworkSourceNodeId}
+              phases={state.phases}
+              onClose={() => setReworkSourceNodeId(null)}
+              onSubmit={handleReworkSubmit}
+            />
+          )}
+
+          {/* Gate Review Modal */}
+          {gateReviewPhaseId && (
+            <GateReviewModal
+              phaseId={gateReviewPhaseId}
+              phases={state.phases}
+              phaseGates={state.phaseGates}
+              onClose={() => setGateReviewPhaseId(null)}
+              onPassGate={handlePassGate}
+            />
+          )}
+
+          {/* Terminate Confirm Modal */}
+          {terminateModalOpen && (
+            <TerminateConfirmModal
+              onClose={() => setTerminateModalOpen(false)}
+              onConfirm={handleTerminateProject}
+            />
+          )}
+        </div>
+      );
+    };
+
+    // =========================== RENDER ===========================
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

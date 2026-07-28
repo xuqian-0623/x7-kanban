@@ -75,7 +75,7 @@
     });
   </script>
 
-  <script type="text/babel">
+  <script type="text/babel" data-presets="env,react">
     window.addEventListener('error', e => {
       const err = document.getElementById('err');
       if (err && !err.textContent) err.textContent = 'RUNTIME: ' + (e.error?.stack || e.message || e);

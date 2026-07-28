@@ -4,31 +4,53 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>智能制造项目进度协同管理平台 - 智能空气炸锅 X7</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            dark: { 50: '#f8fafc', 100: '#e2e8f0', 200: '#cbd5e1', 300: '#94a3b8', 400: '#64748b', 500: '#475569', 600: '#334155', 700: '#1e293b', 800: '#0f172a', 900: '#020617' },
-            accent: { 50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe', 300: '#c4b5fd', 400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9', 800: '#5b21b6', 900: '#4c1d95' },
-          },
-          animation: {
-            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            'slide-up': 'slideUp 0.3s ease-out',
-            'fade-in': 'fadeIn 0.2s ease-out',
-          },
-          keyframes: {
-            slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
-            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-          }
-        }
-      }
+  <script src="lib/react.production.min.js"></script>
+  <script src="lib/react-dom.production.min.js"></script>
+  <script src="lib/babel.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-dark-50: #f8fafc;
+      --color-dark-100: #e2e8f0;
+      --color-dark-200: #cbd5e1;
+      --color-dark-300: #94a3b8;
+      --color-dark-400: #64748b;
+      --color-dark-500: #475569;
+      --color-dark-600: #334155;
+      --color-dark-700: #1e293b;
+      --color-dark-800: #0f172a;
+      --color-dark-900: #020617;
+      --color-accent-50: #f5f3ff;
+      --color-accent-100: #ede9fe;
+      --color-accent-200: #ddd6fe;
+      --color-accent-300: #c4b5fd;
+      --color-accent-400: #a78bfa;
+      --color-accent-500: #8b5cf6;
+      --color-accent-600: #7c3aed;
+      --color-accent-700: #6d28d9;
+      --color-accent-800: #5b21b6;
+      --color-accent-900: #4c1d95;
+      --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      --animate-slide-up: slideUp 0.3s ease-out;
+      --animate-fade-in: fadeIn 0.2s ease-out;
     }
-  </script>
+    @keyframes slideUp {
+      0% { transform: translateY(20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    @keyframes fadeOut {
+      0% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-10px); }
+    }
+    @keyframes flashBorder {
+      0%, 100% { border-color: rgb(251, 146, 60); }
+      50% { border-color: rgb(251, 191, 36); }
+    }
+  </style>
+  <script src="lib/tw-browser.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {

@@ -66,21 +66,14 @@
 </head>
 <body>
   <div id="root"></div>
-  <div id="err" style="position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:20px;font-family:monospace;z-index:99999;white-space:pre-wrap;font-size:12px"></div>
 
   <script>
     window.addEventListener('error', e => {
-      const err = document.getElementById('err');
-      if (err) err.textContent = 'JS ERROR: ' + (e.error?.stack || e.message || e) + '\nat ' + e.filename + ':' + e.lineno;
+      console.error('JS ERROR:', e.error || e.message);
     });
   </script>
 
   <script type="text/babel" data-presets="env,react">
-    window.addEventListener('error', e => {
-      const err = document.getElementById('err');
-      if (err && !err.textContent) err.textContent = 'RUNTIME: ' + (e.error?.stack || e.message || e);
-    });
-    try {
     const { useState, useEffect, useReducer, useCallback, useRef, createContext, useContext, useMemo } = React;
 
     // =========================== MOCK DATA ===========================
@@ -679,8 +672,8 @@
             <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-600 transition-all duration-500" style={{ width: `${progress}%` }}/>
           </div>
         </div>
-      );
-    };
+      </div>
+    );
 
     // --- Task Detail Drawer ---
     const TaskDetailDrawer = ({ node, phaseName, onClose, onMarkDelay, onMarkCompleted, onRework }) => {
@@ -943,8 +936,8 @@
             </div>
           </div>
         </div>
-      );
-    };
+      </div>
+    );
 
     // --- Task Node Card ---
     const TaskNode = ({ node, phaseColor, phaseName, onClick, onMarkCompleted }) => {
@@ -1026,8 +1019,8 @@
             </div>
           </div>
         </div>
-      );
-    };
+      </div>
+    );
 
     // --- Phase Kanban Column ---
     const PhaseColumn = ({ phase, allPhases, phaseGates, onGateReview, onNodeClick, onMarkCompleted }) => {
@@ -1361,8 +1354,14 @@
             )}
           </div>
         </div>
-      );
-    };
+      </div>
+    </div>
+    </div>
+    </div>
+    </div>
+    </div>
+    );
+  };
 
     // --- WeCom Push Toast (模拟企业微信机器人推送) ---
     const WecomToast = ({ logs, onDismiss }) => {
@@ -1860,11 +1859,6 @@
     // =========================== RENDER ===========================
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
-    } catch(e) {
-      const err = document.getElementById('err');
-      if (err) err.textContent = 'INIT ERROR: ' + (e?.stack || e?.message || e);
-      console.error(e);
-    }
   </script>
 </body>
 </html>

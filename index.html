@@ -2857,7 +2857,7 @@
 
       // 后端同步 + SSE 订阅（默认连 Render，可通过 ?api= 或 x7-api-base 自定义）
       // 用 ref 记录只初始化一次，避免 React StrictMode 双调用和重复 PUT
-      // 延迟 500ms 等 state 加载完再 PUT，避免发送 null state
+      // 延迟 1s 等 state 加载完再 PUT，并精简 payload 避免超大请求
       const backendInitRef = React.useRef(false);
       useEffect(() => {
         if (backendInitRef.current) return;
@@ -2869,13 +2869,31 @@
           window.__API_BASE__ = apiBase;
           const projectKey = state.projectName || 'default';
 
-          // 第 1 步：主动把看板的 state 推送给后端（让 AI 能查到项目数据）
-          if (state.projectName) {
-            fetch(`${apiBase}/api/state/${encodeURIComponent(projectKey)}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', 'X-API-Key': 'x7-kanban-secret-2026' },
-              body: JSON.stringify({ state }),
-            }).then(r => console.log('[Backend] PUT', r.status)).catch(e => console.warn('[Backend] PUT failed:', e));
+          // 第 1 步：推 lean state 给后端（剔除图片/文件 base64 避免超大请求体）
+          if (state.projectName && state.phases) {
+            const lean = {
+              ...state,
+              productImages: [],
+              productFiles: [],
+              // 备注历史也精简，只保留最新一条
+              phases: state.phases.map(p => ({
+                ...p,
+                nodes: p.nodes.map(n => ({
+                  ...n,
+                  notesHistory: n.notesHistory ? n.notesHistory.slice(-1) : []
+                }))
+              }))
+            };
+            const json = JSON.stringify({ state: lean });
+            if (json.length > 1000000) {
+              console.warn('[Backend] state 太大，跳过 PUT:', Math.round(json.length / 1024) + 'KB');
+            } else {
+              fetch(`${apiBase}/api/state/${encodeURIComponent(projectKey)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': 'x7-kanban-secret-2026' },
+                body: json,
+              }).then(r => console.log('[Backend] PUT', r.status, projectKey)).catch(e => console.warn('[Backend] PUT failed:', e.message));
+            }
           }
 
           // 第 2 步：拉取服务端最新 state（多端同步用）
@@ -2898,7 +2916,7 @@
           };
           es.onerror = () => { /* 后端不可达，保持 localStorage */ };
           window.__SSE__ = es;
-        }, 500);  // 延迟确保 state 加载完
+        }, 1000);  // 延迟确保 state 加载完
         return () => clearTimeout(timer);
       }, []);
 

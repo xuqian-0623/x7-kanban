@@ -369,7 +369,9 @@ app.get('/api/ai/tools', requireApiKey, (req, res) => {
 
 // 工具执行入口（AI 智能机器人配置时会指向这里）
 app.post('/api/ai/execute', requireApiKey, async (req, res) => {
-  const { tool, arguments: args, chat_id } = req.body;
+  // WeCom 插件平铺参数 → 兼容嵌套 arguments
+  const { tool, chat_id } = req.body;
+  const args = req.body.arguments || req.body; // 优先用 arguments 嵌套，平铺时退回到 req.body
   if (!tool) return res.status(400).json({ error: 'missing tool name' });
   insertActionLog.run(getProjectByChat(chat_id) || 'unknown', 'ai_tool_call', JSON.stringify({ tool, args }), 'ai-bot');
 

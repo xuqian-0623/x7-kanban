@@ -1069,6 +1069,45 @@
 
             {/* Right area: Risk Panel + New Project + WeCom + Terminate Button */}
             <div className="flex items-center gap-2">
+              {/* 手动同步按钮：用户点击才同步，避免自动洪水 */}
+              <button
+                onClick={async () => {
+                  const apiBase = window.__API_BASE__;
+                  const key = state.projectName || 'default';
+                  if (!apiBase) return alert('未配置后端');
+                  try {
+                    // 推 lean state
+                    const lean = {
+                      ...state,
+                      productImages: [],
+                      productFiles: [],
+                      phases: state.phases.map(p => ({ ...p, nodes: p.nodes.map(n => ({ ...n, notesHistory: n.notesHistory ? n.notesHistory.slice(-1) : [] })) }))
+                    };
+                    const json = JSON.stringify({ state: lean });
+                    if (json.length > 1500000) { alert('state 太大，请删除一些图片/文件'); return; }
+                    const putRes = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json', 'X-API-Key': 'x7-kanban-secret-2026' },
+                      body: json,
+                    });
+                    // 拉服务端 state
+                    const getRes = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
+                      headers: { 'X-API-Key': 'x7-kanban-secret-2026' },
+                    });
+                    if (getRes.ok) {
+                      const d = await getRes.json();
+                      if (d.state) dispatch({ type: 'FULL_SYNC', payload: d.state });
+                    }
+                    alert(`同步成功\n推: ${putRes.status}\n拉: ${getRes.status}`);
+                  } catch (e) { alert('同步失败：' + e.message); }
+                }}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all text-xs font-medium flex-shrink-0"
+                title="手动同步：把看板状态推到后端，然后拉取 AI 改动的最新状态"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                同步
+              </button>
+
               {/* Cloud Status Indicator */}
               <div className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-medium flex-shrink-0" title="后端云服务已连接：跨浏览器同步+群协同">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"/>
@@ -2848,84 +2887,16 @@
         }
       }, [state]);
 
-      // 后端同步 + SSE 订阅（默认连 Render，可通过 ?api= 或 x7-api-base 自定义）
-      // 用 ref 记录只初始化一次，避免 React StrictMode 双调用和重复 PUT
-      // 延迟 1s 等 state 加载完再 PUT，并精简 payload 避免超大请求
+      // 后端同步初始化（默认连 Render，可通过 ?api= 或 x7-api-base 自定义）
+      // 仅设置 API base，不自动 PUT/GET，避免请求风暴
       const backendInitRef = React.useRef(false);
       useEffect(() => {
         if (backendInitRef.current) return;
-        const timer = setTimeout(() => {
-          if (backendInitRef.current) return;
-          backendInitRef.current = true;
-          const params = new URLSearchParams(window.location.search);
-          const apiBase = params.get('api') || (localStorage.getItem('x7-api-base') || 'https://x7-kanban.onrender.com');
-          window.__API_BASE__ = apiBase;
-          const projectKey = state.projectName || 'default';
-
-          // 第 1 步：推 lean state 给后端（剔除图片/文件 base64 避免超大请求体）
-          if (state.projectName && state.phases) {
-            const lean = {
-              ...state,
-              productImages: [],
-              productFiles: [],
-              // 备注历史也精简，只保留最新一条
-              phases: state.phases.map(p => ({
-                ...p,
-                nodes: p.nodes.map(n => ({
-                  ...n,
-                  notesHistory: n.notesHistory ? n.notesHistory.slice(-1) : []
-                }))
-              }))
-            };
-            const json = JSON.stringify({ state: lean });
-            if (json.length > 1000000) {
-              console.warn('[Backend] state 太大，跳过 PUT:', Math.round(json.length / 1024) + 'KB');
-            } else {
-              fetch(`${apiBase}/api/state/${encodeURIComponent(projectKey)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-API-Key': 'x7-kanban-secret-2026' },
-                body: json,
-              }).then(r => console.log('[Backend] PUT', r.status, projectKey)).catch(e => console.warn('[Backend] PUT failed:', e.message));
-            }
-          }
-
-          // 第 2 步：拉取服务端最新 state（多端同步用）
-          fetch(`${apiBase}/api/state/${encodeURIComponent(projectKey)}`, {
-            headers: { 'X-API-Key': 'x7-kanban-secret-2026' },
-          })
-            .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d && d.state) dispatch({ type: 'FULL_SYNC', payload: d.state }); })
-            .catch(() => {});
-
-          // 第 3 步：订阅 SSE（FC 不支持 SSE，会失败但不影响）
-          try {
-            const es = new EventSource(`${apiBase}/api/sse/${encodeURIComponent(projectKey)}`);
-            es.onmessage = (e) => {
-              try {
-                const msg = JSON.parse(e.data);
-                if (msg.type === 'STATE_UPDATED' && msg.state) {
-                  dispatch({ type: 'FULL_SYNC', payload: msg.state });
-                }
-              } catch (err) {}
-            };
-            es.onerror = () => { es.close(); };
-            window.__SSE__ = es;
-          } catch (e) { /* SSE 不可用，回退到 polling */ }
-
-          // 第 4 步：Polling（每 5 秒拉取 AI 改动）— 替代 SSE
-          window.__POLL__ = setInterval(() => {
-            const cur = (window.__API_BASE__ || '').replace(/\/+$/, '');
-            const key = state.projectName || 'default';
-            if (!cur) return;
-            fetch(`${cur}/api/state/${encodeURIComponent(key)}`, {
-              headers: { 'X-API-Key': 'x7-kanban-secret-2026' },
-            })
-              .then(r => r.ok ? r.json() : null)
-              .then(d => { if (d && d.state) dispatch({ type: 'FULL_SYNC', payload: d.state }); })
-              .catch(() => {});
-          }, 5000);
-        }, 1000);  // 延迟确保 state 加载完
-        return () => { clearTimeout(timer); if (window.__POLL__) clearInterval(window.__POLL__); };
+        backendInitRef.current = true;
+        const params = new URLSearchParams(window.location.search);
+        const apiBase = params.get('api') || (localStorage.getItem('x7-api-base') || 'https://x7-kanban.onrender.com');
+        window.__API_BASE__ = apiBase;
+        console.log('[Backend] API base:', apiBase);
       }, []);
 
       // 跨标签页实时同步（一窗操作，其他窗户自动更新）

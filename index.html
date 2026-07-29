@@ -438,6 +438,7 @@
       SWITCH_PROJECT: 'SWITCH_PROJECT',
       UPDATE_NODE_NOTES: 'UPDATE_NODE_NOTES',
       UPDATE_NODE_STATUS: 'UPDATE_NODE_STATUS',
+      UPDATE_NODE_DELAY: 'UPDATE_NODE_DELAY',
       UPDATE_PRODUCT_IMAGE: 'UPDATE_PRODUCT_IMAGE',
       UPDATE_PRODUCT_IMAGES: 'UPDATE_PRODUCT_IMAGES',
       UPDATE_PRODUCT_FILES: 'UPDATE_PRODUCT_FILES',
@@ -795,6 +796,30 @@
             const updated = { ...n, status };
             if (extra) Object.assign(updated, extra);
             return updated;
+          });
+          phases = state.phases.map(phase => ({ ...phase, nodes: updateNodes(phase.nodes) }));
+          const newSaved = (state.savedProjects || []).map(p => ({
+            ...p,
+            phases: p.phases.map(phase => ({ ...phase, nodes: updateNodes(phase.nodes) })),
+          }));
+          return { ...state, phases, savedProjects: newSaved };
+        }
+
+        case actionTypes.UPDATE_NODE_DELAY: {
+          const { nodeId, reason, expectedRecovery, impactDays, fromReason } = action;
+          const updateNodes = (nodes) => nodes.map(n => {
+            if (n.id !== nodeId) return n;
+            const delayHistory = [...(n.delayHistory || []), {
+              reason: fromReason || n.delay?.reason || '',
+              expectedRecovery: n.delay?.expectedRecovery,
+              impactDays: n.delay?.impactDays,
+              updatedAt: n.delay?.updatedAt || Date.now(),
+            }];
+            return {
+              ...n,
+              delay: { reason, expectedRecovery, impactDays, updatedAt: Date.now() },
+              delayHistory,
+            };
           });
           phases = state.phases.map(phase => ({ ...phase, nodes: updateNodes(phase.nodes) }));
           const newSaved = (state.savedProjects || []).map(p => ({
@@ -1185,7 +1210,7 @@
     };
 
     // --- Task Detail Drawer ---
-    const TaskDetailDrawer = ({ node, phaseName, onClose, onMarkDelay, onMarkCompleted, onRework, onUpdateNotes, onUpdateStatus }) => {
+    const TaskDetailDrawer = ({ node, phaseName, onClose, onMarkDelay, onUpdateDelay, onMarkCompleted, onRework, onUpdateNotes, onUpdateStatus }) => {
       if (!node) return null;
       const history = node.notesHistory || [];
       const [notes, setNotes] = useState(history.length > 0 ? history[history.length - 1].text : '');
@@ -1336,6 +1361,15 @@
                       ✅ 标记为已完成
                     </button>
                   )}
+                  {/* 更新延期预估 — 已延期节点可继续延期 */}
+                  {node.status === 'delayed' && node.delay && (
+                    <button
+                      onClick={() => { onUpdateDelay(node.id); }}
+                      className="w-full px-4 py-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-600 rounded-lg text-sm font-medium transition-all"
+                    >
+                      📅 更新延期预估（重新填原因/恢复日/影响）
+                    </button>
+                  )}
                   {(node.status === 'ongoing' || node.status === 'pending') && (
                     <button
                       onClick={() => { onMarkDelay(node.id); onClose(); }}
@@ -1368,11 +1402,12 @@
     };
 
     // --- Delay Modal ---
-    const DelayModal = ({ nodeId, phases, onClose, onSubmit }) => {
+    const DelayModal = ({ nodeId, phases, existingDelay, onClose, onSubmit }) => {
       const node = getNodeById(phases, nodeId);
-      const [reason, setReason] = useState('');
-      const [recoveryDate, setRecoveryDate] = useState('');
-      const [impactDays, setImpactDays] = useState(3);
+      const init = existingDelay || {};
+      const [reason, setReason] = useState(init.reason || '');
+      const [recoveryDate, setRecoveryDate] = useState(init.expectedRecovery ? dateStr(init.expectedRecovery) : '');
+      const [impactDays, setImpactDays] = useState(init.impactDays || 3);
       const [error, setError] = useState('');
 
       if (!node) return null;
@@ -1393,7 +1428,7 @@
           <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
           <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-2xl animate-fade-in p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">⛔ 延期异常上报</h2>
+              <h2 className="text-lg font-bold text-slate-900">{existingDelay ? '📅 更新延期预估' : '⛔ 延期异常上报'}</h2>
               <button onClick={onClose} className="text-slate-400 hover:text-slate-900 p-1">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
@@ -2763,6 +2798,10 @@
         setDelayModalNodeId(nodeId);
       }, []);
 
+      const handleUpdateDelay = useCallback((nodeId) => {
+        setDelayModalNodeId({ id: nodeId, isUpdate: true });
+      }, []);
+
       const handleMarkCompleted = useCallback((nodeId) => {
         const n = getNodeById(state.phases, nodeId);
         dispatch({ type: actionTypes.MARK_COMPLETED, nodeId });
@@ -2771,10 +2810,25 @@
 
       const handleDelaySubmit = useCallback((nodeId, reason, recoveryDate, impactDays) => {
         const n = getNodeById(state.phases, nodeId);
-        dispatch({ type: actionTypes.MARK_DELAYED, nodeId, reason, expectedRecovery: recoveryDate, impactDays });
+        const isUpdate = delayModalNodeId && typeof delayModalNodeId === 'object' && delayModalNodeId.isUpdate;
+        if (isUpdate) {
+          // 更新延期预估：保留旧值到 delayHistory，写入新的 delay
+          const prev = n?.delay || {};
+          dispatch({
+            type: actionTypes.UPDATE_NODE_DELAY,
+            nodeId,
+            reason,
+            expectedRecovery: recoveryDate,
+            impactDays,
+            fromReason: prev.reason,
+          });
+          pushSimpleEvent(state, `📅「${n?.name || nodeId}」延期预估已更新\n> 新原因：${reason}\n> 预计恢复：${fmtF(recoveryDate)}\n> 新影响：${impactDays} 天`);
+        } else {
+          dispatch({ type: actionTypes.MARK_DELAYED, nodeId, reason, expectedRecovery: recoveryDate, impactDays });
+          pushDelayAlert(state, nodeId, reason, recoveryDate, impactDays);
+        }
         setDelayModalNodeId(null);
-        pushDelayAlert(state, nodeId, reason, recoveryDate, impactDays);
-      }, [state]);
+      }, [state, delayModalNodeId]);
 
       const handleRework = useCallback((nodeId) => {
         setReworkSourceNodeId(nodeId);
@@ -2851,6 +2905,7 @@
               phaseName={state.phases.find(p => p.nodes.some(n => n.id === selectedNode.id))?.name || ''}
               onClose={() => { setSidebarOpen(false); setSelectedNode(null); }}
               onMarkDelay={handleMarkDelay}
+              onUpdateDelay={handleUpdateDelay}
               onMarkCompleted={handleMarkCompleted}
               onRework={handleRework}
               onUpdateNotes={(nodeId, notes) => dispatch({ type: actionTypes.UPDATE_NODE_NOTES, nodeId, notes })}
@@ -2866,7 +2921,10 @@
           {/* Delay Modal */}
           {delayModalNodeId && (
             <DelayModal
-              nodeId={delayModalNodeId}
+              nodeId={typeof delayModalNodeId === 'object' ? delayModalNodeId.id : delayModalNodeId}
+              existingDelay={(typeof delayModalNodeId === 'object' && delayModalNodeId.isUpdate)
+                ? (getNodeById(state.phases, delayModalNodeId.id)?.delay || undefined)
+                : undefined}
               phases={state.phases}
               onClose={() => setDelayModalNodeId(null)}
               onSubmit={handleDelaySubmit}

@@ -2856,7 +2856,11 @@
       }, [state]);
 
       // 后端同步 + SSE 订阅（默认连 Render，可通过 ?api= 或 x7-api-base 自定义）
+      // 用 ref 记录只初始化一次，避免 React StrictMode 双调用和重复 PUT
+      const backendInitRef = React.useRef(false);
       useEffect(() => {
+        if (backendInitRef.current) return;
+        backendInitRef.current = true;
         const params = new URLSearchParams(window.location.search);
         const apiBase = params.get('api') || (localStorage.getItem('x7-api-base') || 'https://x7-kanban.onrender.com');
         window.__API_BASE__ = apiBase;
@@ -2889,7 +2893,7 @@
         };
         es.onerror = () => { /* 后端不可达，保持 localStorage */ };
         return () => es.close();
-      }, [state.projectName]);
+      }, []);
 
       // 跨标签页实时同步（一窗操作，其他窗户自动更新）
       useEffect(() => {

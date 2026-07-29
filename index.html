@@ -205,16 +205,18 @@
       });
     };
 
-    // 企业微信机器人推送（异步 fire-and-forget）
+    // 企业微信机器人推送（异步 fire-and-forget，用 no-cors 避开浏览器跨域拦截）
     const doPush = (webhook, text) => {
-      if (!webhook) return;
-      try {
-        fetch(webhook, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ msgtype: 'markdown', markdown: { content: text } }),
-        }).catch(() => {});
-      } catch (e) { /* 静默失败 */ }
+      if (!webhook) return Promise.resolve(false);
+      return fetch(webhook, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ msgtype: 'markdown', markdown: { content: text } }),
+      }).then(() => true).catch((err) => {
+        console.warn('[WeCom] 推送失败:', err);
+        return false;
+      });
     };
     const pushEvent = (state, event) => {
       if (!state.wecomWebhook) return;
@@ -974,10 +976,14 @@
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (!state.wecomWebhook) return alert('请先填写 Webhook 地址');
-                        doPush('测试消息：项目看板「' + state.projectName + '」已接入企业微信机器人 ✅');
-                        alert('测试消息已发送，请查看企业微信群');
+                        const ok = await doPush(state.wecomWebhook, '📢 **测试消息**\n项目看板「' + state.projectName + '」已接入企业微信机器人 ✅\n\n> 收到这条消息说明推送成功');
+                        if (ok) {
+                          alert('已推送。\n\n✅ 如果 30 秒内群里没收到，可能原因：\n1. Webhook 地址拼错\n2. 群机器人被管理员关闭\n3. 网络拦截\n\n请按 F12 打开控制台看 [WeCom] 日志');
+                        } else {
+                          alert('❌ 推送失败！\n请按 F12 看 [WeCom] 报错');
+                        }
                       }}
                       className="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded text-xs font-medium transition-all"
                     >

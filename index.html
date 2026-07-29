@@ -263,24 +263,23 @@
       for (const p of phases) { const n = p.nodes.find(x => x.id === nodeId); if (n) { nodeName = n.name; phaseName = p.name; break; } }
       const boardUrl = 'https://xuqian-0623.github.io/x7-kanban/';
 
-      // Markdown 主消息
+      // Markdown 主消息（去掉 <font> 标签，markdown 兼容性差）
       pushMarkdown(state,
         `🚨 **【关键风险预警】请注意！项目出现延期风险**\n` +
         `**项目**：${projectName}\n` +
         `**负责人**：${projectOwner || '未指定'}\n` +
-        `**当前总体进度**：<font color="warning">${progress}%</font>\n` +
-        `**距上市倒计时**：<font color="red">${countdown} 天</font>（已变更）\n\n` +
-        `⚠️ **延期节点**：<font color="warning">${phaseName} → ${nodeName}</font>\n` +
+        `**当前总体进度**：${progress}%\n` +
+        `**距上市倒计时**：${countdown} 天（已变更）\n\n` +
+        `⚠️ **延期节点**：${phaseName} → ${nodeName}\n` +
         `**延期原因**：${reason}\n` +
         `**预计恢复时间**：${fmtF(recoveryDate)}\n` +
-        `**影响评估**：该节点位于关键路径，预计上市推迟 <font color="red">${impactDays} 天</font>\n\n` +
-        `<font color="comment">💡 如需决策，请点击下方按钮或进入看板确认</font>`
+        `**影响评估**：该节点位于关键路径，预计上市推迟 ${impactDays} 天\n\n` +
+        `> 💡 如需决策，请点击下方卡片按钮或进入看板确认`
       );
 
-      // 互动卡片（带按钮）
+      // 互动卡片（带按钮，curl 已验证格式）
       pushTemplate(state, {
         card_type: 'text_notice',
-        source: { icon_url: '', desc: '智能看板 · 风险预警' },
         main_title: { title: `「${nodeName}」延期需您的确认`, desc: `预计影响上市日 ${impactDays} 天` },
         emphasis_content: { title: `${impactDays} 天`, desc: '预计推迟上市' },
         sub_title_text: `原因：${reason} | 预计恢复：${fmtF(recoveryDate)}`,
@@ -317,7 +316,7 @@
         for (const p of phases) { const n = p.nodes.find(x => x.id === id); if (n) return '「' + n.name + '」'; }
         return id;
       }).join('、');
-      const impactDays = 3; // 默认影响
+      const impactDays = 3;
 
       pushMarkdown(state,
         `🔔 **【项目变更通知】发现异常，已触发对应环节返修**\n` +
@@ -325,18 +324,17 @@
         `**负责人**：${projectOwner || '未指定'}\n` +
         `**当前总体进度**：${progress}%\n\n` +
         `⛔ **发现异常的节点**：${srcPhase} → ${srcName}\n` +
-        `**变更动作**：系统已自动创建 <font color="warning">「${reworkName}」</font> 的 V2 返修任务\n` +
+        `**变更动作**：系统已自动创建「${reworkName}」的 V2 返修任务\n` +
         `**预计返修完成时间**：${fmtF(new Date(Date.now() + 7 * 86400000))}\n\n` +
         `🧩 **并行任务状态说明**：\n` +
         `> 受此影响，以下节点被置为"等待资源"冻结：${downstreamNames}\n` +
         `> 其他并行工作不受影响，按原计划推进\n` +
-        `> 综合评估：预计影响上市日 <font color="red">${impactDays} 天</font>\n\n` +
-        `<font color="comment">请确认是否需要先行安排返修，或保持原定节奏</font>`
+        `> 综合评估：预计影响上市日 ${impactDays} 天\n\n` +
+        `> 💡 请确认是否需要先行安排返修，或保持原定节奏`
       );
 
       pushTemplate(state, {
         card_type: 'text_notice',
-        source: { icon_url: '', desc: '智能看板 · 变更通知' },
         main_title: { title: `返修变更：${reworkName} V2`, desc: `下游 ${downstreamNodeIds.length} 个节点已冻结` },
         emphasis_content: { title: `${impactDays} 天`, desc: '预计影响上市' },
         sub_title_text: `异常节点：${srcPhase} → ${srcName}`,

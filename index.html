@@ -205,18 +205,32 @@
       });
     };
 
-    // 企业微信机器人推送（异步 fire-and-forget，用 no-cors 避开浏览器跨域拦截）
-    const doPush = (webhook, text) => {
-      if (!webhook) return Promise.resolve(false);
-      return fetch(webhook, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ msgtype: 'markdown', markdown: { content: text } }),
-      }).then(() => true).catch((err) => {
-        console.warn('[WeCom] 推送失败:', err);
-        return false;
-      });
+    // 企业微信机器人推送 —— 走 Render 代理（浏览器无法直连企微 webhook）
+    const doPush = async (webhook, text) => {
+      if (!webhook) return false;
+      const payload = { msgtype: 'markdown', markdown: { content: text } };
+      const body = JSON.stringify(payload);
+
+      // 方案 A：Render 代理（推荐 —— 真正的 POST JSON，不回被浏览器 CORS 篡改）
+      try {
+        const url = new URL(webhook);
+        const proxyUrl = `https://videostudio-api.onrender.com/api/proxy${url.pathname}${url.search}`;
+        const res = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Target-Base-URL': url.origin,
+          },
+          body,
+        });
+        if (res.ok) { console.log('[WeCom] 代理推送 OK'); return true; }
+      } catch (e) { console.warn('[WeCom] 代理不可用', e); }
+
+      // 方案 B：直连回退（mode: no-cors，浏览器可能篡改 Content-Type）
+      try {
+        await fetch(webhook, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body });
+        return true;
+      } catch (err) { console.warn('[WeCom] 直推送失败:', err); return false; }
     };
     const pushEvent = (state, event) => {
       if (!state.wecomWebhook) return;

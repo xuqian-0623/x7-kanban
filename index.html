@@ -1987,6 +1987,7 @@
     const ProductFilesColumn = ({ files, onAddFiles, onRemoveFile }) => {
       const filesInputRef = React.useRef(null);
       const [previewImage, setPreviewImage] = useState(null);
+      const [linkForm, setLinkForm] = useState(null); // {name, url} or null
 
       const handleFiles = async (e) => {
         e.stopPropagation();
@@ -2001,6 +2002,7 @@
           reader.onload = (evt) => {
             newFiles[idx] = {
               id: 'f-' + Date.now() + '-' + idx,
+              kind: 'file',
               name: f.name, type: compressed.type, size: compressed.size,
               dataUrl: evt.target.result,
               uploadedAt: Date.now(),
@@ -2017,9 +2019,30 @@
         e.target.value = '';
       };
 
+      const submitLink = () => {
+        if (!linkForm.url.trim()) { alert('请输入外链 URL'); return; }
+        let normalized = linkForm.url.trim();
+        if (!/^https?:\/\//i.test(normalized)) normalized = 'https://' + normalized;
+        const name = linkForm.name.trim() || normalized.split('/').pop() || '外链文件';
+        const entry = {
+          id: 'l-' + Date.now(),
+          kind: 'link',
+          name,
+          url: normalized,
+          source: (() => { try { return new URL(normalized).hostname; } catch { return ''; } })(),
+          uploadedAt: Date.now(),
+        };
+        onAddFiles([...(files || []), entry]);
+        setLinkForm(null);
+      };
+
       const handleFileOpen = (f, e) => {
         e.stopPropagation();
-        if (f.type.startsWith('image/')) {
+        if (f.kind === 'link') {
+          window.open(f.url, '_blank', 'noopener');
+          return;
+        }
+        if (f.type && f.type.startsWith('image/')) {
           setPreviewImage(f.dataUrl);
         } else {
           const win = window.open();
@@ -2028,6 +2051,7 @@
       };
 
       const getFileIcon = (f) => {
+        if (f.kind === 'link') return '🔗';
         if (f.type.startsWith('image/')) return '🖼';
         if (f.type.includes('pdf')) return '📕';
         if (f.type.includes('word') || f.type.includes('document')) return '📄';
@@ -2044,36 +2068,75 @@
               文件资料
               {(files || []).length > 0 && <span className="text-[10px] text-slate-400 font-normal">({files.length})</span>}
             </h3>
-            <button
-              onClick={(e) => { e.stopPropagation(); filesInputRef.current?.click(); }}
-              className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-medium transition-all flex items-center gap-1"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
-              添加文件
-            </button>
-            <input ref={filesInputRef} type="file" multiple className="hidden" onChange={handleFiles}/>
+            <div className="flex gap-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); filesInputRef.current?.click(); }}
+                className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-medium transition-all flex items-center gap-1"
+                title="本地小文件（≤20MB）"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                上传
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setLinkForm({ name: '', url: '' }); }}
+                className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-medium transition-all flex items-center gap-1"
+                title="添加外链（推荐用于大文件）"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                外链
+              </button>
+              <input ref={filesInputRef} type="file" multiple className="hidden" onChange={handleFiles}/>
+            </div>
           </div>
+
+          {/* Link form */}
+          {linkForm && (
+            <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="text-[10px] font-semibold text-amber-600 mb-1.5">🔗 添加外链（不存文件，刷新也不丢）</div>
+              <input
+                type="text"
+                value={linkForm.name}
+                onChange={e => setLinkForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="文件名称（可留空）"
+                className="w-full px-2 py-1.5 mb-1 bg-white border border-slate-200 rounded text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-amber-400"
+              />
+              <input
+                type="text"
+                value={linkForm.url}
+                onChange={e => setLinkForm(p => ({ ...p, url: e.target.value }))}
+                placeholder="https://...（云盘/网盘/GitHub 等）"
+                className="w-full px-2 py-1.5 mb-1.5 bg-white border border-slate-200 rounded text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-amber-400"
+              />
+              <div className="flex gap-1.5">
+                <button onClick={() => setLinkForm(null)} className="flex-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs transition-colors">取消</button>
+                <button onClick={submitLink} className="flex-1 px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-medium transition-colors">保存外链</button>
+              </div>
+            </div>
+          )}
 
           {/* Files list */}
           <div className="space-y-1.5 flex-1">
             {(files || []).map(f => {
-              const isImage = f.type.startsWith('image/');
+              const isImage = f.kind !== 'link' && f.type && f.type.startsWith('image/');
               return (
                 <div key={f.id} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded group hover:border-blue-300 transition-colors">
                   <button
                     onClick={(e) => handleFileOpen(f, e)}
                     className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                    title={isImage ? '点击预览' : '点击打开'}
+                    title={f.kind === 'link' ? '新窗口打开外链' : isImage ? '点击预览' : '点击打开'}
                   >
                     {isImage ? (
                       <img src={f.dataUrl} alt={f.name} className="w-12 h-12 rounded object-cover flex-shrink-0 border border-slate-200"/>
                     ) : (
-                      <span className="w-12 h-12 rounded bg-slate-100 flex items-center justify-center flex-shrink-0 text-2xl">{getFileIcon(f)}</span>
+                      <span className={`w-12 h-12 rounded flex items-center justify-center flex-shrink-0 text-2xl ${f.kind === 'link' ? 'bg-amber-50' : 'bg-slate-100'}`}>{getFileIcon(f)}</span>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="text-xs text-slate-700 truncate font-medium">{f.name}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
-                        {(f.size/1024).toFixed(0)} KB · {new Date(f.uploadedAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}
+                        {f.kind === 'link'
+                          ? <><span className="text-amber-600">🔗 外链</span> · {f.source}</>
+                          : <>{((f.size || 0)/1024).toFixed(0)} KB · {new Date(f.uploadedAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}</>
+                        }
                       </div>
                     </div>
                   </button>
@@ -2091,7 +2154,7 @@
               <div className="text-center py-6 text-xs text-slate-400 border-2 border-dashed border-slate-200 rounded">
                 <div className="text-2xl mb-2">📁</div>
                 暂无文件<br/>
-                <span className="text-[10px]">点击右上"添加文件"上传</span>
+                <span className="text-[10px]">点「上传」传本地文件 · 点「外链」挂云盘链接</span>
               </div>
             )}
           </div>

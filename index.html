@@ -205,6 +205,29 @@
       });
     };
 
+    // 企业微信机器人推送（异步 fire-and-forget）
+    const doPush = (webhook, text) => {
+      if (!webhook) return;
+      try {
+        fetch(webhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ msgtype: 'markdown', markdown: { content: text } }),
+        }).catch(() => {});
+      } catch (e) { /* 静默失败 */ }
+    };
+    const pushEvent = (state, event) => {
+      if (!state.wecomWebhook) return;
+      const statusMap = { completed: '✅ 已完成', ongoing: '▶ 进行中', pending: '○ 待开始', delayed: '⚠ 已延期', frozen: '⏸ 冻结' };
+      const msg = [
+        `📋 **项目：${state.projectName}**`,
+        `> ${event}`,
+        `---`,
+        `⏱ ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} · <font color="comment">来自智能看板</font>`,
+      ].join('\n');
+      doPush(state.wecomWebhook, msg);
+    };
+
     const getAllNodes = (phases) => {
       const map = {};
       phases.forEach(p => p.nodes.forEach(n => { map[n.id] = { ...n, phaseId: p.id }; }));
@@ -284,6 +307,7 @@
       UPDATE_PRODUCT_IMAGE: 'UPDATE_PRODUCT_IMAGE',
       UPDATE_PRODUCT_IMAGES: 'UPDATE_PRODUCT_IMAGES',
       UPDATE_PRODUCT_FILES: 'UPDATE_PRODUCT_FILES',
+      UPDATE_WECOM_WEBHOOK: 'UPDATE_WECOM_WEBHOOK',
     };
 
     const initState = () => {
@@ -329,6 +353,7 @@
         productImage: null,
         productImages: [],
         productFiles: [],
+        wecomWebhook: '',
         savedProjects: [],
         activityLog: [{
           id: 'log-init',
@@ -659,6 +684,10 @@
           return { ...state, productFiles: action.productFiles };
         }
 
+        case actionTypes.UPDATE_WECOM_WEBHOOK: {
+          return { ...state, wecomWebhook: action.webhook };
+        }
+
         default:
           return state;
       }
@@ -696,6 +725,7 @@
     const ProjectHeader = ({ state, dispatch, onTerminate, onAddProject, onSwitchProject }) => {
       const [riskOpen, setRiskOpen] = useState(false);
       const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+      const [wecomOpen, setWecomOpen] = useState(false);
       const { done, total } = countCompleted(state.phases);
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
       const countdown = getCountdown(state.launchDate);
@@ -836,8 +866,22 @@
               </div>
             </div>
 
-            {/* Right area: Risk Panel + New Project + Terminate Button */}
+            {/* Right area: Risk Panel + New Project + WeCom + Terminate Button */}
             <div className="flex items-center gap-2">
+              {/* WeCom Robot */}
+              <button
+                onClick={() => setWecomOpen(!wecomOpen)}
+                className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg transition-all text-xs font-medium flex-shrink-0 ${
+                  state.wecomWebhook
+                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    : 'bg-slate-100 border border-slate-200 text-slate-500 hover:bg-slate-200'
+                }`}
+                title="企业微信机器人推送"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/><circle cx="12" cy="12" r="10"/></svg>
+                企微推送
+              </button>
+
               {/* New Project Button */}
               <button
                 onClick={onAddProject}
@@ -898,6 +942,59 @@
                 </div>
               )}
             </div>
+
+            {"{/* WeCom Popover */}"}
+            {wecomOpen && (
+              <div className="absolute right-2 top-full mt-1 w-80 z-[1000] animate-fade-in bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
+                <div className="px-4 py-3 bg-gradient-to-r from-green-500 to-green-600">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-white text-sm font-bold flex items-center gap-1.5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/><circle cx="12" cy="12" r="10"/></svg>
+                      企业微信机器人推送
+                    </h3>
+                    <button onClick={() => setWecomOpen(false)} className="text-green-100 hover:text-white p-0.5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Webhook 地址</label>
+                    <input
+                      type="text"
+                      value={state.wecomWebhook || ''}
+                      onChange={e => dispatch({ type: actionTypes.UPDATE_WECOM_WEBHOOK, webhook: e.target.value })}
+                      placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-none focus:border-green-400 text-slate-700 placeholder-slate-400"
+                    />
+                  </div>
+                  <div className="text-[10px] text-slate-400 leading-relaxed">
+                    获取方式：企微群聊 → 群设置 → 群机器人 → 添加 → Webhook → 复制地址<br/>
+                    节点操作（完成/延期/返修/状态切换等）将实时推送消息到群。
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!state.wecomWebhook) return alert('请先填写 Webhook 地址');
+                        doPush('测试消息：项目看板「' + state.projectName + '」已接入企业微信机器人 ✅');
+                        alert('测试消息已发送，请查看企业微信群');
+                      }}
+                      className="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded text-xs font-medium transition-all"
+                    >
+                      发送测试
+                    </button>
+                    {state.wecomWebhook && (
+                      <button
+                        onClick={() => { dispatch({ type: actionTypes.UPDATE_WECOM_WEBHOOK, webhook: '' }); setWecomOpen(false); }}
+                        className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded text-xs font-medium transition-all"
+                      >
+                        断开
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Terminate Button */}
             {!terminated && (
@@ -2420,35 +2517,45 @@
       }, []);
 
       const handlePassGate = useCallback((phaseId) => {
+        const phase = state.phases.find(p => p.id === phaseId);
         dispatch({ type: actionTypes.GATE_PASS, phaseId });
-      }, []);
+        pushEvent(state, `🚪 阶段门通过：**${phase?.name || phaseId}**，可进入下一阶段`);
+      }, [state]);
 
       const handleTerminateProject = useCallback(() => {
         dispatch({ type: actionTypes.TERMINATE_PROJECT });
         setTerminateModalOpen(false);
-      }, []);
+        pushEvent(state, `🛑 项目「${state.projectName}」已被终止`);
+      }, [state]);
 
       const handleMarkDelay = useCallback((nodeId) => {
         setDelayModalNodeId(nodeId);
       }, []);
 
       const handleMarkCompleted = useCallback((nodeId) => {
+        const n = getNodeById(state.phases, nodeId);
         dispatch({ type: actionTypes.MARK_COMPLETED, nodeId });
-      }, []);
+        pushEvent(state, `✅「${n?.name || nodeId}」已标记为完成`);
+      }, [state]);
 
       const handleDelaySubmit = useCallback((nodeId, reason, recoveryDate, impactDays) => {
+        const n = getNodeById(state.phases, nodeId);
         dispatch({ type: actionTypes.MARK_DELAYED, nodeId, reason, expectedRecovery: recoveryDate, impactDays });
         setDelayModalNodeId(null);
-      }, []);
+        pushEvent(state, `⚠ **延期警报**：「${n?.name || nodeId}」\n> 原因：${reason}\n> 预计恢复：${dateStr(recoveryDate)}\n> 影响 ${impactDays} 天`);
+      }, [state]);
 
       const handleRework = useCallback((nodeId) => {
         setReworkSourceNodeId(nodeId);
       }, []);
 
       const handleReworkSubmit = useCallback((sourceNodeId, targetPhaseId) => {
+        const s = getNodeById(state.phases, sourceNodeId);
+        const t = state.phases.find(p => p.id === targetPhaseId);
         dispatch({ type: actionTypes.CREATE_REWORK, sourceNodeId, targetPhaseId });
         setReworkSourceNodeId(null);
-      }, []);
+        pushEvent(state, `🔧 **返修发起**：「${s?.name || sourceNodeId}」 → ${t?.name || targetPhaseId}`);
+      }, [state]);
 
       const { done, total } = countCompleted(state.phases);
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -2517,7 +2624,12 @@
               onMarkCompleted={handleMarkCompleted}
               onRework={handleRework}
               onUpdateNotes={(nodeId, notes) => dispatch({ type: actionTypes.UPDATE_NODE_NOTES, nodeId, notes })}
-              onUpdateStatus={(nodeId, status) => dispatch({ type: actionTypes.UPDATE_NODE_STATUS, nodeId, status })}
+              onUpdateStatus={(nodeId, status) => {
+                dispatch({ type: actionTypes.UPDATE_NODE_STATUS, nodeId, status });
+                const n = getNodeById(state.phases, nodeId);
+                const statusLabels = { ongoing: '▶ 进行中', pending: '○ 待开始' };
+                pushEvent(state, `🔄「${n?.name || nodeId}」状态变更 → ${statusLabels[status] || status}`);
+              }}
             />
           )}
 

@@ -571,11 +571,12 @@
           phases.forEach(p => { newGates[p.id] = { status: 'pending' }; });
           const log = createLog('system', '系统', `「${projectName}」项目已创建`,
             `负责人：${owner}，启动日期：${sDate}，预计上市日期：${launchDate}`);
-          // 保存当前项目到存档
+          // 保存当前项目到存档（含图片和文件）
           const currentSnap = {
             phases: state.phases, launchDate: state.launchDate, terminated: state.terminated,
             phaseGates: state.phaseGates, projectName: state.projectName, projectOwner: state.projectOwner,
             projectStartDate: state.projectStartDate, activityLog: state.activityLog, notifications: state.notifications,
+            productImages: state.productImages || [], productFiles: state.productFiles || [],
           };
           const saved = [...(state.savedProjects || []).filter(p => p.projectName !== currentSnap.projectName), currentSnap];
           return {
@@ -583,6 +584,7 @@
             phases, launchDate, terminated: false, phaseGates: newGates,
             projectName, projectOwner: owner, projectStartDate: sDate,
             activityLog: [...state.activityLog, log], notifications: [],
+            productImages: [], productFiles: [],
             savedProjects: saved,
           };
         }
@@ -590,14 +592,22 @@
         case actionTypes.SWITCH_PROJECT: {
           const target = (state.savedProjects || []).find(p => p.projectName === action.projectName);
           if (!target) return state;
-          // 保存当前项目
+          // 保存当前项目（含图片和文件）
           const currentSnap = {
             phases: state.phases, launchDate: state.launchDate, terminated: state.terminated,
             phaseGates: state.phaseGates, projectName: state.projectName, projectOwner: state.projectOwner,
             projectStartDate: state.projectStartDate, activityLog: state.activityLog, notifications: state.notifications,
+            productImages: state.productImages || [], productFiles: state.productFiles || [],
           };
           const saved = [...state.savedProjects.filter(p => p.projectName !== target.projectName && p.projectName !== currentSnap.projectName), currentSnap];
-          return { ...state, ...target, savedProjects: saved, tick: state.tick + 1 };
+          return {
+            ...state,
+            ...target,
+            productImages: target.productImages || [],
+            productFiles: target.productFiles || [],
+            savedProjects: saved,
+            tick: state.tick + 1,
+          };
         }
 
         case actionTypes.UPDATE_NODE_NOTES: {
@@ -618,23 +628,18 @@
         }
 
         case actionTypes.UPDATE_PRODUCT_IMAGE: {
-          // Legacy single image — append to array
+          // Legacy single image — append to array (仅当前项目，不动存档)
           const images = [...(state.productImages || (state.productImage ? [state.productImage] : [])), action.productImage];
-          const updateImg = (p) => ({ ...p, productImages: images, productImage: undefined });
-          const newSaved = (state.savedProjects || []).map(p => ({ ...p, productImages: images, productImage: undefined }));
-          return { ...state, ...updateImg(state), savedProjects: newSaved };
+          return { ...state, productImages: images, productImage: undefined };
         }
 
         case actionTypes.UPDATE_PRODUCT_IMAGES: {
-          const updateImg = (p) => ({ ...p, productImages: action.productImages, productImage: undefined });
-          const newSaved = (state.savedProjects || []).map(p => ({ ...p, productImages: action.productImages, productImage: undefined }));
-          return { ...state, ...updateImg(state), savedProjects: newSaved };
+          // 仅更新当前项目状态，存档留到 SWITCH/ADD 时再统一序列化
+          return { ...state, productImages: action.productImages, productImage: undefined };
         }
 
         case actionTypes.UPDATE_PRODUCT_FILES: {
-          const updateFiles = (p) => ({ ...p, productFiles: action.productFiles });
-          const newSaved = (state.savedProjects || []).map(p => ({ ...p, productFiles: action.productFiles }));
-          return { ...state, ...updateFiles(state), savedProjects: newSaved };
+          return { ...state, productFiles: action.productFiles };
         }
 
         default:

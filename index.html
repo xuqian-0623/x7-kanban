@@ -1069,6 +1069,12 @@
 
             {/* Right area: Risk Panel + New Project + WeCom + Terminate Button */}
             <div className="flex items-center gap-2">
+              {/* Cloud Status Indicator */}
+              <div className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-medium flex-shrink-0" title="后端云服务已连接：跨浏览器同步+群协同">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"/>
+                云端已连接
+              </div>
+
               {/* WeCom Robot */}
               <button
                 onClick={() => setWecomOpen(!wecomOpen)}
@@ -2849,11 +2855,10 @@
         }
       }, [state]);
 
-      // 后端 SSE 订阅（URL 带 ?api= 时启用）
+      // 后端 SSE 订阅（URL 带 ?api= 时启用，否则用 Render 部署地址作为默认云端）
       useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const apiBase = params.get('api');
-        if (!apiBase) return;
+        const apiBase = params.get('api') || (localStorage.getItem('x7-api-base') || 'https://x7-kanban.onrender.com');
         window.__API_BASE__ = apiBase;
         // 初始拉取服务端 state
         fetch(`${apiBase}/api/state/${encodeURIComponent(state.projectName || 'default')}`)

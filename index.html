@@ -1558,16 +1558,10 @@
               return (
                 <div
                   key={n.id}
-                  className="rounded-xl p-4 border-l-4 animate-slide-up transition-all"
+                  className="rounded-xl p-4 border-l-4 animate-slide-up transition-all bg-white border border-slate-200 shadow-sm"
                   style={{
                     borderLeftColor: n.clientResponse === 'confirmed' ? '#10b981' : n.clientResponse === 'rejected' ? '#ef4444' : n.type === 'rework' ? '#f97316' : '#ef4444',
-                    backgroundColor: n.clientResponse
-                      ? 'rgba(30, 41, 59, 0.5)'
-                      : 'rgba(30, 41, 59, 0.8)',
-                    borderWidth: 1,
-                    borderColor: n.clientResponse
-                      ? 'rgba(51, 65, 85, 0.3)'
-                      : 'rgba(51, 65, 85, 0.5)',
+                    backgroundColor: n.clientResponse ? '#f8fafc' : '#ffffff',
                   }}
                 >
                   <div className="flex items-start gap-3">
@@ -1593,7 +1587,7 @@
                         <div className="flex items-center gap-2 mt-3">
                           <button
                             onClick={() => onConfirm(n.id)}
-                            className="px-3 py-1.5 bg-green-100 hover:bg-green-100 border border-green-200 text-green-500 rounded-lg text-xs font-medium transition-all"
+                            className="px-3 py-1.5 bg-green-50 hover:bg-green-100 border border-green-200 text-green-600 rounded-lg text-xs font-medium transition-all"
                           >
                             ✅ 一键确认延期
                           </button>
@@ -1605,14 +1599,14 @@
                           </button>
                           <button
                             onClick={() => { onDismiss(n.id); toggleCollapse(n.id); }}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-300 text-slate-400 rounded-lg text-xs transition-all ml-auto"
+                            className="px-3 py-1.5 bg-slate-50 hover:bg-slate-200 text-slate-500 rounded-lg text-xs transition-all ml-auto"
                           >
                             稍后处理 ↕
                           </button>
                         </div>
                       )}
                       {n.clientResponse === 'confirmed' && (
-                        <div className="mt-2 text-xs text-green-500">✅ 客户已确认延期通知</div>
+                        <div className="mt-2 text-xs text-green-600">✅ 客户已确认延期通知</div>
                       )}
                       {n.clientResponse === 'rejected' && (
                         <div className="mt-2 text-xs text-red-600">❌ 客户已驳回并要求加急处理</div>
@@ -1622,7 +1616,7 @@
                       {n.clientResponse && (
                         <button
                           onClick={() => toggleCollapse(n.id)}
-                          className="mt-2 text-xs text-slate-400 hover:text-slate-400 transition-colors"
+                          className="mt-2 text-xs text-slate-400 hover:text-slate-600 transition-colors"
                         >
                           ↕ 收起
                         </button>

@@ -363,6 +363,39 @@
       );
     };
 
+    // ===== 推送群协同交互卡片 =====
+    const pushCollaborationCard = (state, type, extra) => {
+      if (!state.wecomWebhook) return;
+      const boardUrl = 'https://xuqian-0623.github.io/x7-kanban/';
+      const { phases, projectName, projectOwner } = state;
+
+      if (type === 'delay') {
+        // 列出所有非 completed 节点供选择
+        const nodes = [];
+        phases.forEach(p => p.nodes.forEach(n => {
+          if (n.status !== 'completed' && n.status !== 'frozen') nodes.push({ id: n.id, name: n.name, phase: p.name });
+        }));
+
+        pushTemplate(state, {
+          card_type: 'text_notice',
+          main_title: { title: '🛠 项目风险登记卡', desc: '请在群内快速登记延期节点' },
+          emphasis_content: { title: projectName, desc: `负责人：${projectOwner}` },
+          sub_title_text: '点击下方按钮跳转到看板进行延期登记',
+          horizontal_content_list: [
+            { keyname: '项目', value: projectName },
+            { keyname: '当前进度', value: (() => { const {done,total}=countCompleted(phases); return total>0?Math.round(done/total*100)+'%':'0%'; })() },
+            { keyname: '可选节点', value: `${nodes.length} 个非完成节点` },
+          ],
+          button_list: [
+            { type: 1, text: '📅 登记延期', style: 1, key: 'delay_card', url: boardUrl + '?act=delay' },
+            { type: 1, text: '🔧 发起返修', style: 2, key: 'rework_card', url: boardUrl + '?act=rework' },
+            { type: 1, text: '📊 查看日报', style: 3, key: 'daily_card', url: boardUrl + '?act=daily' },
+          ],
+          card_action: { type: 1, url: boardUrl },
+        });
+      }
+    };
+
     const getAllNodes = (phases) => {
       const map = {};
       phases.forEach(p => p.nodes.forEach(n => { map[n.id] = { ...n, phaseId: p.id }; }));
@@ -437,6 +470,7 @@
       TICK: 'TICK',
       ADD_PROJECT: 'ADD_PROJECT',
       SWITCH_PROJECT: 'SWITCH_PROJECT',
+      FULL_SYNC: 'FULL_SYNC',
       UPDATE_NODE_NOTES: 'UPDATE_NODE_NOTES',
       UPDATE_NODE_STATUS: 'UPDATE_NODE_STATUS',
       UPDATE_NODE_DELAY: 'UPDATE_NODE_DELAY',
@@ -751,6 +785,11 @@
             productImages: [], productFiles: [],
             savedProjects: saved,
           };
+        }
+
+        case actionTypes.FULL_SYNC: {
+          // 从 BroadcastChannel 接收同步，全量替换 state
+          return { ...action.payload };
         }
 
         case actionTypes.SWITCH_PROJECT: {
@@ -1163,6 +1202,12 @@
                           className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-medium transition-all"
                         >
                           发送日报
+                        </button>
+                        <button
+                          onClick={() => { pushCollaborationCard(state, 'delay'); alert('✅ 协同卡片已推送，研发人员可在群内直接操作'); }}
+                          className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded text-xs font-medium transition-all"
+                        >
+                          推送协同卡
                         </button>
                         <button
                           onClick={() => { dispatch({ type: actionTypes.UPDATE_WECOM_WEBHOOK, webhook: '' }); setWecomOpen(false); }}
@@ -2786,8 +2831,9 @@
         try {
           const json = JSON.stringify(state);
           localStorage.setItem('x7-kanban-state', json);
+          // Broadcast to other tabs (群协同：一窗操作，全窗同步)
+          try { new BroadcastChannel('x7-kanban').postMessage({ type: 'SYNC', ts: Date.now() }); } catch(e) {}
         } catch (e) {
-          // localStorage 满，清理旧图片数据再试
           try {
             const lean = { ...state, productImages: [], productFiles: [] };
             localStorage.setItem('x7-kanban-state', JSON.stringify(lean));
@@ -2795,6 +2841,60 @@
           } catch (e2) { /* 无私有模式/完全不可写 */ }
         }
       }, [state]);
+
+      // 跨标签页实时同步（一窗操作，其他窗户自动更新）
+      useEffect(() => {
+        const bc = new BroadcastChannel('x7-kanban');
+        bc.onmessage = () => {
+          try {
+            const cached = localStorage.getItem('x7-kanban-state');
+            if (cached) {
+              const parsed = JSON.parse(cached, (key, val) => {
+                const dateKeys = ['planStart', 'planEnd', 'actualEnd', 'expectedRecovery', 'passedAt'];
+                if (dateKeys.includes(key) && typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) return new Date(val);
+                return val;
+              });
+              if (parsed && parsed.phases) dispatch({ type: 'FULL_SYNC', payload: parsed });
+            }
+          } catch(e) {}
+        };
+        return () => bc.close();
+      }, []);
+
+      // URL 参数自动执行（从企微卡片打开时自动操作）
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const act = params.get('act');
+        if (!act) return;
+        // 清除 URL 参数不让重复执行
+        const clean = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', clean);
+
+        const nid = params.get('nid');
+        const reason = params.get('reason') || '';
+        const recovery = params.get('recovery');
+        const impact = parseInt(params.get('impact') || '3');
+        const tpid = params.get('tpid');
+
+        if (act === 'daily') { pushProgressReport(state); }
+        else if (act === 'delay' && nid) {
+          if (recovery) {
+            dispatch({ type: actionTypes.MARK_DELAYED, nodeId: nid, reason, expectedRecovery: new Date(recovery), impactDays: impact });
+            pushDelayAlert(state, nid, reason, new Date(recovery), impact);
+          } else {
+            setDelayModalNodeId({ id: nid, isFromCard: true, reason, recovery });
+          }
+        }
+        else if (act === 'rework' && nid && tpid) {
+          dispatch({ type: actionTypes.CREATE_REWORK, sourceNodeId: nid, targetPhaseId: tpid, reason });
+          const d = getDownstreamNodes(nid, state.phases);
+          pushReworkNotice(state, nid, tpid, `${nid}-V2`, d.slice(0,5), reason);
+        }
+        else if (act === 'complete' && nid) {
+          dispatch({ type: actionTypes.MARK_COMPLETED, nodeId: nid });
+          pushSimpleEvent(state, `✅ 节点已完成（通过群卡片操作）`);
+        }
+      }, []); // 仅页面加载时执行一次
 
       // Auto transition on mount (with delay for visual effect)
       useEffect(() => {

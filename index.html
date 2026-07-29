@@ -2855,18 +2855,30 @@
         }
       }, [state]);
 
-      // 后端 SSE 订阅（URL 带 ?api= 时启用，否则用 Render 部署地址作为默认云端）
+      // 后端同步 + SSE 订阅（默认连 Render，可通过 ?api= 或 x7-api-base 自定义）
       useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const apiBase = params.get('api') || (localStorage.getItem('x7-api-base') || 'https://x7-kanban.onrender.com');
         window.__API_BASE__ = apiBase;
-        // 初始拉取服务端 state
-        fetch(`${apiBase}/api/state/${encodeURIComponent(state.projectName || 'default')}`)
+        const projectKey = state.projectName || 'default';
+
+        // 第 1 步：主动把看板的 state 推送给后端（让 AI 能查到项目数据）
+        fetch(`${apiBase}/api/state/${encodeURIComponent(projectKey)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'x7-kanban-secret-2026' },
+          body: JSON.stringify({ state }),
+        }).catch(() => {});
+
+        // 第 2 步：拉取服务端最新 state（多端同步用）
+        fetch(`${apiBase}/api/state/${encodeURIComponent(projectKey)}`, {
+          headers: { 'X-API-Key': 'x7-kanban-secret-2026' },
+        })
           .then(r => r.ok ? r.json() : null)
           .then(d => { if (d && d.state) dispatch({ type: 'FULL_SYNC', payload: d.state }); })
           .catch(() => {});
-        // 订阅 SSE
-        const es = new EventSource(`${apiBase}/api/sse/${encodeURIComponent(state.projectName || 'default')}`);
+
+        // 第 3 步：订阅 SSE
+        const es = new EventSource(`${apiBase}/api/sse/${encodeURIComponent(projectKey)}`);
         es.onmessage = (e) => {
           try {
             const msg = JSON.parse(e.data);
@@ -2877,7 +2889,7 @@
         };
         es.onerror = () => { /* 后端不可达，保持 localStorage */ };
         return () => es.close();
-      }, []);
+      }, [state.projectName]);
 
       // 跨标签页实时同步（一窗操作，其他窗户自动更新）
       useEffect(() => {

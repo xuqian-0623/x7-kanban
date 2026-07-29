@@ -2832,20 +2832,13 @@
         return () => clearInterval(interval);
       }, []);
 
-      // Auto-save state to localStorage on every change
+      // Auto-save state to localStorage on every change (不再 PUT 后端，避免洪水)
       useEffect(() => {
         try {
           const json = JSON.stringify(state);
           localStorage.setItem('x7-kanban-state', json);
-          // Broadcast to other tabs (群协同：一窗操作，全窗同步)
+          // Broadcast to other tabs（同浏览器多 tab 同步）
           try { new BroadcastChannel('x7-kanban').postMessage({ type: 'SYNC', ts: Date.now() }); } catch(e) {}
-          // 后端同步（如有 ?api= 参数）
-          const apiBase = window.__API_BASE__;
-          if (apiBase) {
-            fetch(`${apiBase}/api/state/${encodeURIComponent(state.projectName || 'default')}`, {
-              method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state }),
-            }).catch(() => {});
-          }
         } catch (e) {
           try {
             const lean = { ...state, productImages: [], productFiles: [] };
@@ -2904,20 +2897,35 @@
             .then(d => { if (d && d.state) dispatch({ type: 'FULL_SYNC', payload: d.state }); })
             .catch(() => {});
 
-          // 第 3 步：订阅 SSE
-          const es = new EventSource(`${apiBase}/api/sse/${encodeURIComponent(projectKey)}`);
-          es.onmessage = (e) => {
-            try {
-              const msg = JSON.parse(e.data);
-              if (msg.type === 'STATE_UPDATED' && msg.state) {
-                dispatch({ type: 'FULL_SYNC', payload: msg.state });
-              }
-            } catch (err) {}
-          };
-          es.onerror = () => { /* 后端不可达，保持 localStorage */ };
-          window.__SSE__ = es;
+          // 第 3 步：订阅 SSE（FC 不支持 SSE，会失败但不影响）
+          try {
+            const es = new EventSource(`${apiBase}/api/sse/${encodeURIComponent(projectKey)}`);
+            es.onmessage = (e) => {
+              try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'STATE_UPDATED' && msg.state) {
+                  dispatch({ type: 'FULL_SYNC', payload: msg.state });
+                }
+              } catch (err) {}
+            };
+            es.onerror = () => { es.close(); };
+            window.__SSE__ = es;
+          } catch (e) { /* SSE 不可用，回退到 polling */ }
+
+          // 第 4 步：Polling（每 5 秒拉取 AI 改动）— 替代 SSE
+          window.__POLL__ = setInterval(() => {
+            const cur = (window.__API_BASE__ || '').replace(/\/+$/, '');
+            const key = state.projectName || 'default';
+            if (!cur) return;
+            fetch(`${cur}/api/state/${encodeURIComponent(key)}`, {
+              headers: { 'X-API-Key': 'x7-kanban-secret-2026' },
+            })
+              .then(r => r.ok ? r.json() : null)
+              .then(d => { if (d && d.state) dispatch({ type: 'FULL_SYNC', payload: d.state }); })
+              .catch(() => {});
+          }, 5000);
         }, 1000);  // 延迟确保 state 加载完
-        return () => clearTimeout(timer);
+        return () => { clearTimeout(timer); if (window.__POLL__) clearInterval(window.__POLL__); };
       }, []);
 
       // 跨标签页实时同步（一窗操作，其他窗户自动更新）

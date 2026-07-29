@@ -1374,17 +1374,17 @@
       if (dismissed) return null;
 
       const typeStyles = {
-        client_confirm: { border: 'border-l-emerald-500', icon: '✅', bg: 'from-emerald-500/10' },
-        client_reject: { border: 'border-l-red-500', icon: '⛔', bg: 'from-red-500/10' },
-        delay: { border: 'border-l-red-500', icon: '⏰', bg: 'from-red-500/10' },
-        rework: { border: 'border-l-orange-500', icon: '🔧', bg: 'from-orange-500/10' },
-        batch_advance: { border: 'border-l-violet-500', icon: '▶', bg: 'from-violet-500/10' },
+        client_confirm: { border: 'border-l-emerald-500', icon: '✅' },
+        client_reject: { border: 'border-l-red-500', icon: '⛔' },
+        delay: { border: 'border-l-red-500', icon: '⏰' },
+        rework: { border: 'border-l-orange-500', icon: '🔧' },
+        batch_advance: { border: 'border-l-violet-500', icon: '▶' },
       };
-      const s = typeStyles[latest.type] || { border: 'border-l-slate-500', icon: '📢', bg: 'from-slate-500/10' };
+      const s = typeStyles[latest.type] || { border: 'border-l-slate-500', icon: '📢' };
 
       const toastNode = (
         <div className="fixed top-4 right-4 z-[9999] animate-slide-up max-w-[400px] min-w-[320px]" style={{ zIndex: 99999 }}>
-          <div className={`rounded-xl shadow-2xl border border-slate-600/50 bg-gradient-to-r ${s.bg} to-slate-800 overflow-hidden`}>
+          <div className={`rounded-xl shadow-2xl border border-slate-600 bg-slate-800 border-l-4 ${s.border} overflow-hidden`}>
             {/* Head */}
             <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/80 border-b border-slate-600/30">
               <div className="w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center">

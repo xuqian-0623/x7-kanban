@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: x7-kanban-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DB_PATH
+        value: /opt/render/project/src/x7-kanban.db
+    disk:
+      name: kanban-data
+      mountPath: /opt/render/project/src
+      sizeGB: 1

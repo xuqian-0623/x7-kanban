@@ -175,6 +175,36 @@
       const d = new Date(date); d.setDate(d.getDate() + days); return d;
     };
 
+    // 图片压缩：canvas resize + JPEG 压缩，把大图控制在 150KB 左右
+    const compressImage = (file) => {
+      return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) { resolve(file); return; }
+        if (file.size < 200 * 1024) { resolve(file); return; } // 小于 200KB 不压缩
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const canvas = document.createElement('canvas');
+          const maxW = 1200, maxH = 900;
+          let w = img.width, h = img.height;
+          if (w > maxW || h > maxH) {
+            const ratio = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * ratio); h = Math.round(h * ratio);
+          }
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            if (!blob) { resolve(file); return; }
+            const compressed = new File([blob], file.name, { type: 'image/jpeg' });
+            resolve(compressed);
+          }, 'image/jpeg', 0.75);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+      });
+    };
+
     const getAllNodes = (phases) => {
       const map = {};
       phases.forEach(p => p.nodes.forEach(n => { map[n.id] = { ...n, phaseId: p.id }; }));
@@ -1883,15 +1913,16 @@
         }
       };
 
-      const handleImage = (e) => {
+      const handleImage = async (e) => {
         e.stopPropagation();
         const file = e.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) { alert('请选择图片文件'); return; }
-        if (file.size > 5 * 1024 * 1024) { alert('图片不能超过 5MB'); return; }
+        if (file.size > 20 * 1024 * 1024) { alert('图片不能超过 20MB'); return; }
+        const compressed = await compressImage(file);
         const reader = new FileReader();
         reader.onload = (evt) => onUpload([...images, evt.target.result]);
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(compressed);
         e.target.value = '';
       };
 
@@ -1957,26 +1988,27 @@
       const filesInputRef = React.useRef(null);
       const [previewImage, setPreviewImage] = useState(null);
 
-      const handleFiles = (e) => {
+      const handleFiles = async (e) => {
         e.stopPropagation();
         const list = Array.from(e.target.files || []);
         if (list.length === 0) return;
         const newFiles = [];
         let pending = list.length;
-        list.forEach((f, idx) => {
-          if (f.size > 5 * 1024 * 1024) { alert(`${f.name} 超过 5MB 跳过`); pending--; if (pending === 0) commit(); return; }
+        list.forEach(async (f, idx) => {
+          if (f.size > 20 * 1024 * 1024) { alert(`${f.name} 超过 20MB 跳过`); pending--; if (pending === 0) commit(); return; }
+          const compressed = await compressImage(f);
           const reader = new FileReader();
           reader.onload = (evt) => {
             newFiles[idx] = {
               id: 'f-' + Date.now() + '-' + idx,
-              name: f.name, type: f.type, size: f.size,
+              name: f.name, type: compressed.type, size: compressed.size,
               dataUrl: evt.target.result,
               uploadedAt: Date.now(),
             };
             pending--;
             if (pending === 0) commit();
           };
-          reader.readAsDataURL(f);
+          reader.readAsDataURL(compressed);
         });
         const commit = () => {
           const valid = newFiles.filter(Boolean);
@@ -2233,7 +2265,14 @@
         try {
           const json = JSON.stringify(state);
           localStorage.setItem('x7-kanban-state', json);
-        } catch (e) { /* localStorage full or private mode */ }
+        } catch (e) {
+          // localStorage 满，清理旧图片数据再试
+          try {
+            const lean = { ...state, productImages: [], productFiles: [] };
+            localStorage.setItem('x7-kanban-state', JSON.stringify(lean));
+            console.warn('Storage 满，已清理图片/文件，核心数据保留');
+          } catch (e2) { /* 无私有模式/完全不可写 */ }
+        }
       }, [state]);
 
       // Auto transition on mount (with delay for visual effect)

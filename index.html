@@ -1076,32 +1076,44 @@
                   const key = state.projectName || 'default';
                   if (!apiBase) return alert('未配置后端');
                   try {
-                    const lean = {
-                      ...state,
-                      productImages: [],
-                      productFiles: [],
-                      phases: state.phases.map(p => ({ ...p, nodes: p.nodes.map(n => ({ ...n, notesHistory: n.notesHistory ? n.notesHistory.slice(-1) : [] })) }))
-                    };
-                    const json = JSON.stringify({ state: lean });
-                    if (json.length > 1500000) { alert('state 太大，请删除一些图片/文件'); return; }
-                    const putRes = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json', 'X-API-Key': 'x7-kanban-secret-2026' },
-                      body: json,
-                    });
+                    // 第 1 步：先 GET 拉取后端最新 state（含 AI 改动）
                     const getRes = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
                       headers: { 'X-API-Key': 'x7-kanban-secret-2026' },
                     });
+                    let merged = state;
                     if (getRes.ok) {
                       const d = await getRes.json();
-                      if (d.state) dispatch({ type: 'FULL_SYNC', payload: d.state });
+                      if (d.state) {
+                        // 合并：后端 state 覆盖同名节点（保留看板独有字段如 notesHistory）
+                        merged = {
+                          ...state,
+                          phases: d.state.phases || state.phases,
+                          projectName: d.state.projectName || state.projectName,
+                          // 保留看板的 productImages/productFiles（不丢失）
+                          productImages: state.productImages || [],
+                          productFiles: state.productFiles || [],
+                        };
+                        dispatch({ type: 'FULL_SYNC', payload: merged });
+                      }
                     }
-                    alert(`同步成功\n推: ${putRes.status}\n拉: ${getRes.status}`);
+                    // 第 2 步：再 PUT 合并后的 state 给后端
+                    const lean = {
+                      ...merged,
+                      productImages: [],
+                      productFiles: [],
+                      phases: merged.phases.map(p => ({ ...p, nodes: p.nodes.map(n => ({ ...n, notesHistory: n.notesHistory ? n.notesHistory.slice(-1) : [] })) }))
+                    };
+                    const putRes = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json', 'X-API-Key': 'x7-kanban-secret-2026' },
+                      body: JSON.stringify({ state: lean }),
+                    });
+                    alert(`同步成功\n拉: ${getRes.status}\n推: ${putRes.status}\n\n看板已合并后端改动！`);
                   } catch (e) { alert('同步失败：' + e.message); }
                 }}
                 style={{ backgroundColor: '#10b981', color: '#ffffff' }}
                 className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg hover:opacity-90 transition-all text-xs font-medium flex-shrink-0"
-                title="手动同步：把看板状态推到后端，然后拉取 AI 改动的最新状态"
+                title="拉取后端 AI 改动 → 合并到看板 → 再推回给后端"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
                 同步

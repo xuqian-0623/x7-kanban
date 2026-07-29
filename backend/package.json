@@ -1,19 +1,6 @@
 {
-  "name": "x7-kanban-backend",
+  "name": "x7-kanban-vercel",
   "version": "1.0.0",
-  "description": "X7 智能制造看板后端 — 群协同 + 实时同步 + WeCom 回调",
-  "main": "server.js",
   "type": "module",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "better-sqlite3": "^11.0.0",
-    "cors": "^2.8.5",
-    "express": "^4.21.0"
-  }
+  "dependencies": {}
 }

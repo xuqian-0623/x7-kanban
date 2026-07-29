@@ -2833,6 +2833,13 @@
           localStorage.setItem('x7-kanban-state', json);
           // Broadcast to other tabs (群协同：一窗操作，全窗同步)
           try { new BroadcastChannel('x7-kanban').postMessage({ type: 'SYNC', ts: Date.now() }); } catch(e) {}
+          // 后端同步（如有 ?api= 参数）
+          const apiBase = window.__API_BASE__;
+          if (apiBase) {
+            fetch(`${apiBase}/api/state/${encodeURIComponent(state.projectName || 'default')}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state }),
+            }).catch(() => {});
+          }
         } catch (e) {
           try {
             const lean = { ...state, productImages: [], productFiles: [] };
@@ -2841,6 +2848,31 @@
           } catch (e2) { /* 无私有模式/完全不可写 */ }
         }
       }, [state]);
+
+      // 后端 SSE 订阅（URL 带 ?api= 时启用）
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const apiBase = params.get('api');
+        if (!apiBase) return;
+        window.__API_BASE__ = apiBase;
+        // 初始拉取服务端 state
+        fetch(`${apiBase}/api/state/${encodeURIComponent(state.projectName || 'default')}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d && d.state) dispatch({ type: 'FULL_SYNC', payload: d.state }); })
+          .catch(() => {});
+        // 订阅 SSE
+        const es = new EventSource(`${apiBase}/api/sse/${encodeURIComponent(state.projectName || 'default')}`);
+        es.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'STATE_UPDATED' && msg.state) {
+              dispatch({ type: 'FULL_SYNC', payload: msg.state });
+            }
+          } catch (err) {}
+        };
+        es.onerror = () => { /* 后端不可达，保持 localStorage */ };
+        return () => es.close();
+      }, []);
 
       // 跨标签页实时同步（一窗操作，其他窗户自动更新）
       useEffect(() => {

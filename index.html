@@ -670,6 +670,35 @@
                 <span>📅 启动：{startLabel}</span>
                 <span>🏷️ 项目编号：X7-2026-A01</span>
               </div>
+
+              {/* Status Stats (Vertical, with unique symbols) */}
+              <div className="mt-4 flex flex-col gap-1.5 w-fit">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-green-600 font-bold w-5 text-center text-base" title="已完成">✓</span>
+                  <span className="text-slate-500 w-16">已完成</span>
+                  <span className="text-slate-900 font-semibold">{done}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-blue-600 font-bold w-5 text-center text-base" title="进行中">▶</span>
+                  <span className="text-slate-500 w-16">进行中</span>
+                  <span className="text-slate-900 font-semibold">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'ongoing').length, 0)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-red-600 font-bold w-5 text-center text-base" title="已延期">▲</span>
+                  <span className="text-slate-500 w-16">已延期</span>
+                  <span className="text-slate-900 font-semibold">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'delayed').length, 0)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-cyan-600 font-bold w-5 text-center text-base" title="冻结/等待">❄</span>
+                  <span className="text-slate-500 w-16">冻结/等待</span>
+                  <span className="text-slate-900 font-semibold">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'frozen').length, 0)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-400 font-bold w-5 text-center text-base" title="待开始">○</span>
+                  <span className="text-slate-500 w-16">待开始</span>
+                  <span className="text-slate-900 font-semibold">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'pending').length, 0)}</span>
+                </div>
+              </div>
             </div>
 
             {/* Center: Progress */}
@@ -1948,41 +1977,9 @@
               onReject={(id) => dispatch({ type: actionTypes.CLIENT_REJECT, notificationId: id })}
             />
 
-            {/* Summary Stats */}
-            <div className="mt-5 glass-card rounded-xl p-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500"/>
-                    <span className="text-slate-400">已完成</span>
-                    <span className="text-slate-900 font-medium">{done}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full bg-blue-500"/>
-                    <span className="text-slate-400">进行中</span>
-                    <span className="text-slate-900 font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'ongoing').length, 0)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full bg-red-500"/>
-                    <span className="text-slate-400">已延期</span>
-                    <span className="text-slate-900 font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'delayed').length, 0)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full bg-blue-500"/>
-                    <span className="text-slate-400">冻结/等待</span>
-                    <span className="text-slate-900 font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'frozen').length, 0)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full bg-slate-200"/>
-                    <span className="text-slate-400">待开始</span>
-                    <span className="text-slate-900 font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'pending').length, 0)}</span>
-                  </div>
-                </div>
-                <div className="text-xs text-slate-400">
-                  总计 {total} 个任务节点 · 距上市倒计时 {getCountdown(state.launchDate)} 天 · 目标上市日期：{state.launchDate}
-                </div>
-              </div>
-            </div>
+            {/* (Summary Stats 已移至 ProjectHeader 左侧) */}
+
+          {/* WeCom Push Toast (fixed top-right) */}
           </div>
 
           {/* WeCom Push Toast (fixed top-right) */}

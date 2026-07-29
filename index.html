@@ -1885,11 +1885,28 @@
     const ImageLightbox = ({ src, onClose }) => {
       if (!src) return null;
       return ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm" onClick={onClose}>
-          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white bg-black/60 hover:bg-black/90 rounded-full p-2 z-10 transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" onClick={onClose} style={{ zIndex: 99999 }}>
+          {/* 关闭按钮：单独容器，绝对定位且不被图片挡住 */}
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ position: 'fixed', top: 16, right: 16, zIndex: 100000 }}
+            className="text-white bg-black/60 hover:bg-red-600 rounded-full p-2.5 transition-colors shadow-lg">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
-          <img src={src} alt="预览" className="max-w-[90vw] max-h-[90vh] object-contain rounded shadow-2xl" onClick={e => e.stopPropagation()}/>
+          {/* 图片：约束宽高 + object-contain + auto centering */}
+          <img
+            src={src}
+            alt="预览"
+            draggable={false}
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 'calc(100vw - 48px)',
+              maxHeight: 'calc(100vh - 48px)',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+            className="rounded shadow-2xl"
+          />
         </div>,
         document.body
       );

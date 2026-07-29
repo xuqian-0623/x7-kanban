@@ -488,6 +488,7 @@
         productImages: [],
         productFiles: [],
         wecomWebhook: '',
+        reworkRecords: [],
         savedProjects: [],
         activityLog: [{
           id: 'log-init',
@@ -609,68 +610,55 @@
           if (!srcNode || !targetPhase) return state;
 
           const v2Id = targetPhase.id + '_rework_v2_' + Date.now();
+          const now = new Date();
           const newReworkNode = {
             id: v2Id,
             name: `[${srcNode.name} V2 返修]`,
             status: 'ongoing',
-            planStart: new Date(),
-            planEnd: addDays(new Date(), 5),
+            planStart: now,
+            planEnd: addDays(now, 5),
             dependsOn: [],
             isRework: true,
             reworkSource: action.sourceNodeId,
           };
 
+          // 仅创建 V2 节点，不冻结源节点，不影响下游（独立返工）
           phases = state.phases.map(phase => {
             if (phase.id === targetPhase.id) {
               return { ...phase, nodes: [...phase.nodes, newReworkNode] };
             }
-            // Source node：仅未完成节点置为 frozen；已完成节点保留 completed 历史
+            // 源节点仅标记 reworkV2Id，保持原状态
             if (phase.id === srcNode.phaseId) {
               return {
                 ...phase,
-                nodes: phase.nodes.map(n => {
-                  if (n.id === action.sourceNodeId) {
-                    const isCompleted = n.status === 'completed';
-                    return { ...n, status: isCompleted ? 'completed' : 'frozen', reworkV2Id: v2Id };
-                  }
-                  return n;
-                })
-              };
-            }
-            // 下游所有依赖源节点的任务一并冻结（无论源节点当前状态如何）
-            const downstreamIds = getDownstreamNodes(action.sourceNodeId, [phase]);
-            if (downstreamIds.length > 0) {
-              return {
-                ...phase,
                 nodes: phase.nodes.map(n =>
-                  downstreamIds.includes(n.id) && n.status !== 'completed'
-                    ? { ...n, status: 'frozen' }
-                    : n
+                  n.id === action.sourceNodeId ? { ...n, reworkV2Id: v2Id } : n
                 )
               };
             }
             return phase;
           });
 
-          launchDate = calcLaunchDate(phases);
-          // Recalc countdown
-          notifications = [...state.notifications, {
-            id: 'n' + Date.now(),
-            type: 'rework',
-            title: `${srcNode.name}发现异常，已发起返修`,
-            reason: `${srcNode.name}发现模具异常`,
-            impact: `已创建 ${newReworkNode.name}，预计延长 3 天`,
-            expectedRecovery: fmt(addDays(new Date(), 5)),
-            originalCountdown: getCountdown(state.launchDate),
-            currentCountdown: getCountdown(launchDate),
-            nodeId: v2Id,
-            createdAt: Date.now(),
-            dismissed: false,
-          }];
+          // 返工历史记录
+          const record = {
+            id: 'rwr-' + Date.now(),
+            timestamp: Date.now(),
+            sourceNodeId: action.sourceNodeId,
+            sourceNodeName: srcNode.name,
+            sourcePhaseId: srcNode.phaseId,
+            sourcePhaseName: phases.find(p => p.id === srcNode.phaseId)?.name || '',
+            targetPhaseId: action.targetPhaseId,
+            targetPhaseName: targetPhase.name,
+            reworkNodeId: v2Id,
+            reworkNodeName: newReworkNode.name,
+            status: 'ongoing',
+          };
+          const reworkRecords = [...(state.reworkRecords || []), record];
+
           const logR = createLog('rework', '张伟', `发起返修变更：${srcNode.name}`,
-            `目标阶段「${targetPhase.name}」，生成 ${newReworkNode.name}，原节点冻结为等待资源`,
+            `目标阶段「${targetPhase.name}」，生成 ${newReworkNode.name}（独立返工，不影响其他节点）`,
             targetPhase.id);
-          return { ...state, phases, launchDate, notifications, activityLog: [...state.activityLog, logR] };
+          return { ...state, phases, reworkRecords, activityLog: [...state.activityLog, logR] };
         }
 
         case actionTypes.DISMISS_NOTIFICATION: {
@@ -869,7 +857,7 @@
     const ChevronDown = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>;
 
     // --- Project Header ---
-    const ProjectHeader = ({ state, dispatch, onTerminate, onAddProject, onSwitchProject }) => {
+    const ProjectHeader = ({ state, dispatch, onTerminate, onAddProject, onSwitchProject, onReworkHistory }) => {
       const [riskOpen, setRiskOpen] = useState(false);
       const [projectMenuOpen, setProjectMenuOpen] = useState(false);
       const [wecomOpen, setWecomOpen] = useState(false);
@@ -1039,6 +1027,16 @@
                   <path d="M12 5v14M5 12h14"/>
                 </svg>
                 新增项目
+              </button>
+
+              {/* Rework History Button */}
+              <button
+                onClick={onReworkHistory}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 hover:bg-orange-100 hover:border-orange-300 transition-all text-xs font-medium flex-shrink-0"
+                title="查看所有返工记录"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+                返工记录
               </button>
 
               {/* Risk Panel */}
@@ -1958,6 +1956,81 @@
     );
   };
 
+    // --- Rework History Modal ---
+    const ReworkHistoryModal = ({ records, phases, onClose }) => {
+      const fmt = (ts) => {
+        const d = new Date(ts);
+        return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      };
+      const statusLabel = (n) => {
+        for (const p of phases) { const f = p.nodes.find(x => x.id === n.reworkNodeId); if (f) return f.status; }
+        return n.status;
+      };
+      const statusBadge = (s) => {
+        const map = { completed: ['bg-green-100 text-green-600', '✅ 已完成'], ongoing: ['bg-blue-100 text-blue-600', '▶ 进行中'], pending: ['bg-slate-100 text-slate-500', '○ 待开始'] };
+        const [cls, label] = map[s] || ['bg-slate-100 text-slate-500', s];
+        return <span className={`text-[10px] px-1.5 py-0.5 rounded ${cls} font-medium`}>{label}</span>;
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={onClose}/>
+          <div className="relative w-full max-w-2xl max-h-[85vh] bg-white rounded-2xl shadow-2xl border border-slate-200 animate-slide-up overflow-hidden flex flex-col">
+            <div className="px-6 py-5 bg-gradient-to-r from-orange-400 to-orange-600 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  返工历史记录
+                </h2>
+                <button onClick={onClose} className="text-orange-100 hover:text-white p-1">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <p className="text-orange-100/80 text-xs mt-1">
+                所有 V2 返修操作汇总 · 下一个项目提前规避参考
+              </p>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {(records || []).length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <div className="text-3xl mb-2">📋</div>
+                  <div className="text-sm">暂无返工记录</div>
+                  <div className="text-xs mt-1">发起返修变更后，记录会自动出现在这里</div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {[...records].reverse().map(r => (
+                    <div key={r.id} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs text-slate-400">⏱ {fmt(r.timestamp)}</div>
+                        {statusBadge(statusLabel(r))}
+                      </div>
+                      <div className="text-sm font-semibold text-slate-800 mb-2">{r.reworkNodeName}</div>
+                      <div className="grid grid-cols-3 gap-2 text-xs text-slate-500">
+                        <div>
+                          <span className="text-slate-400">来源节点</span>
+                          <div className="text-slate-700 font-medium">{r.sourceNodeName}</div>
+                          <div className="text-[10px] text-slate-400">{r.sourcePhaseName}</div>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">返工到</span>
+                          <div className="text-slate-700 font-medium">{r.targetPhaseName}</div>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">返修ID</span>
+                          <div className="text-[10px] text-slate-400 font-mono">{r.reworkNodeId.slice(0, 12)}...</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     // --- Add Project Modal ---
     const AddProjectModal = ({ onClose, onSubmit }) => {
       const [form, setForm] = useState({ name: '', owner: '', startDate: dateStr(new Date()) });
@@ -2632,6 +2705,7 @@
       const [gateReviewPhaseId, setGateReviewPhaseId] = useState(null);
       const [terminateModalOpen, setTerminateModalOpen] = useState(false);
       const [showAddProject, setShowAddProject] = useState(false);
+      const [reworkHistoryOpen, setReworkHistoryOpen] = useState(false);
       const [addForm, setAddForm] = useState({ name: '', owner: '', startDate: dateStr(new Date()) });
 
       // Live countdown tick
@@ -2723,8 +2797,8 @@
         <div className="min-h-screen bg-slate-50">
           <div className="max-w-[1600px] mx-auto px-4 py-5">
             {/* Top Header */}
-            <ProjectHeader state={state} dispatch={dispatch} onTerminate={() => setTerminateModalOpen(true)} onAddProject={() => setShowAddProject(true)} onSwitchProject={(name) => dispatch({ type: actionTypes.SWITCH_PROJECT, projectName: name })} />
-
+            <ProjectHeader state={state} dispatch={dispatch} onTerminate={() => setTerminateModalOpen(true)} onAddProject={() => setShowAddProject(true)} onSwitchProject={(name) => dispatch({ type: actionTypes.SWITCH_PROJECT, projectName: name })} onReworkHistory={() => setReworkHistoryOpen(true)} />
+            </div>
             {/* Kanban Board */}
             <div className="flex gap-4 overflow-x-auto pb-4 kanban-scroll phase-wrapper">
               {state.phases.map(phase => (
@@ -2761,8 +2835,6 @@
             />
 
             {/* (Summary Stats 已移至 ProjectHeader 左侧) */}
-
-          {/* WeCom Push Toast (fixed top-right) */}
           </div>
 
           {/* WeCom Push Toast (fixed top-right) */}
@@ -2828,6 +2900,15 @@
             <TerminateConfirmModal
               onClose={() => setTerminateModalOpen(false)}
               onConfirm={handleTerminateProject}
+            />
+          )}
+
+          {/* Rework History Modal */}
+          {reworkHistoryOpen && (
+            <ReworkHistoryModal
+              records={state.reworkRecords || []}
+              phases={state.phases}
+              onClose={() => setReworkHistoryOpen(false)}
             />
           )}
 

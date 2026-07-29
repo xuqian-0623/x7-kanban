@@ -9,30 +9,31 @@
   <script src="lib/babel.min.js"></script>
   <link rel="stylesheet" href="lib/tailwind.min.css">
   <style>
-    .bg-dark-700 { background-color: #1e293b; }
-    .bg-dark-800 { background-color: #0f172a; }
+    .bg-white { background-color: #ffffff; }
+    .bg-slate-50 { background-color: #f1f5f9; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #0f172a;
-      color: #e2e8f0;
+      background: #f1f5f9;
+      color: #1e293b;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       overflow-x: hidden;
     }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
     .gradient-text {
-      background: linear-gradient(135deg, #a78bfa, #8b5cf6, #7c3aed);
+      background: linear-gradient(135deg, #60a5fa, #3b82f6, #2563eb);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
     .glass-card {
-      background: rgba(30, 41, 59, 0.8);
+      background: rgba(255, 255, 255, 0.85);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(51, 65, 85, 0.6);
+      border: 1px solid rgba(203, 213, 225, 0.8);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
     .phase-wrapper { scroll-snap-type: x mandatory; }
     .phase-scroll { scroll-snap-align: start; }
@@ -43,7 +44,7 @@
       animation: delayPulse 2s ease-in-out infinite;
     }
     @keyframes delayPulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
       50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
     }
     .node-card {
@@ -51,7 +52,7 @@
     }
     .node-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
     }
     .toast-enter { animation: slideUp 0.3s ease-out; }
     .toast-exit { animation: fadeOut 0.3s ease-in forwards; }
@@ -87,7 +88,7 @@
     const initialPhases = () => [
       {
         id: 'design', name: '产品设计',
-        color: '#8b5cf6',
+        color: '#3b82f6',
         nodes: [
           { id: 'd1', name: '内部策划',     status: 'completed', planStart: d(6,1),  planEnd: d(6,5),  actualEnd: d(6,4),  dependsOn: [] },
           { id: 'd2', name: '任务开发',     status: 'completed', planStart: d(6,3),  planEnd: d(6,10), actualEnd: d(6,9),  dependsOn: ['d1'] },
@@ -497,21 +498,21 @@
     const StatusIcon = ({ status, size = 20 }) => {
       const icons = {
         completed: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#10b981"/><path d="M8 12l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-        ongoing: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#8b5cf6"/><rect x="10" y="7" width="4" height="10" rx="1" fill="#fff"/></svg>,
-        pending: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#475569"/><circle cx="12" cy="12" r="3" fill="#64748b"/></svg>,
+        ongoing: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#3b82f6"/><rect x="10" y="7" width="4" height="10" rx="1" fill="#fff"/></svg>,
+        pending: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#94a3b8"/><circle cx="12" cy="12" r="3" fill="#94a3b8"/></svg>,
         delayed: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#ef4444"/><path d="M12 7v5l3 3" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>,
-        frozen: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#8b5cf6" opacity="0.6"/><rect x="9" y="6" width="2" height="12" rx="1" fill="#fff"/><rect x="13" y="6" width="2" height="12" rx="1" fill="#fff"/></svg>,
+        frozen: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#3b82f6" opacity="0.6"/><rect x="9" y="6" width="2" height="12" rx="1" fill="#fff"/><rect x="13" y="6" width="2" height="12" rx="1" fill="#fff"/></svg>,
       };
       return icons[status] || icons.pending;
     };
 
     const StatusBadge = ({ status }) => {
       const map = {
-        completed: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: '已完成' },
-        ongoing: { bg: 'bg-violet-500/20', text: 'text-violet-400', label: '进行中' },
-        pending: { bg: 'bg-slate-600/30', text: 'text-slate-400', label: '待开始' },
-        delayed: { bg: 'bg-red-500/20', text: 'text-red-400', label: '已延期' },
-        frozen: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: '等待资源' },
+        completed: { bg: 'bg-green-100', text: 'text-green-500', label: '已完成' },
+        ongoing: { bg: 'bg-blue-100', text: 'text-blue-400', label: '进行中' },
+        pending: { bg: 'bg-slate-200', text: 'text-slate-400', label: '待开始' },
+        delayed: { bg: 'bg-red-100', text: 'text-red-600', label: '已延期' },
+        frozen: { bg: 'bg-blue-100', text: 'text-blue-400', label: '等待资源' },
       };
       const s = map[status] || map.pending;
       return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>{s.label}</span>;
@@ -531,12 +532,12 @@
 
       return (
         <div className={`rounded-xl p-5 mb-5 relative z-30 transition-all duration-500 ${
-          terminated ? 'bg-red-950/60 border-2 border-red-500/40' : 'glass-card'
+          terminated ? 'bg-red-50 border-2 border-red-300' : 'glass-card'
         }`}>
           {/* Terminated banner */}
           {terminated && (
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-6 py-1 bg-red-600 rounded-full shadow-lg shadow-red-600/30">
-              <span className="text-xs font-bold text-white tracking-wider">⚠ 项目已终止 ⚠</span>
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-6 py-1 bg-red-600 rounded-full shadow-lg shadow-red-200">
+              <span className="text-xs font-bold text-slate-900 tracking-wider">⚠ 项目已终止 ⚠</span>
             </div>
           )}
 
@@ -544,49 +545,49 @@
             {/* Left: Project Info */}
             <div className="flex-1 min-w-[200px]">
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-xl font-bold text-white">智能空气炸锅 X7</h1>
+                <h1 className="text-xl font-bold text-slate-900">智能空气炸锅 X7</h1>
                 {terminated ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse-slow">已终止</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600 border border-red-200 animate-pulse-slow">已终止</span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">进行中</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600 border border-green-200">进行中</span>
                 )}
-                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${terminated ? 'bg-slate-700/30 text-slate-500 border-slate-600/20' : 'bg-sky-500/10 text-sky-400 border-sky-500/20'}`}>新品</span>
-                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${terminated ? 'bg-slate-700/30 text-slate-500 border-slate-600/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>量产准备中</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${terminated ? 'bg-slate-100 text-slate-400 border-slate-300' : 'bg-blue-50 text-blue-500 border-blue-200'}`}>新品</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${terminated ? 'bg-slate-100 text-slate-400 border-slate-300' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>量产准备中</span>
               </div>
               <div className="flex items-center gap-3 mt-2 text-sm text-slate-400">
-                <span>👤 负责人：<span className="text-slate-200">张伟</span></span>
+                <span>👤 负责人：<span className="text-slate-700">张伟</span></span>
                 <span>📅 启动：2026-06-01</span>
                 <span>🏷️ 项目编号：X7-2026-A01</span>
               </div>
             </div>
 
             {/* Center: Progress */}
-            <div className="flex items-center gap-4 px-4 py-2 rounded-lg bg-slate-800/50 min-w-[200px]">
+            <div className="flex items-center gap-4 px-4 py-2 rounded-lg bg-slate-100 min-w-[200px]">
               <div className="relative w-14 h-14">
                 <svg className="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
                   <circle cx="18" cy="18" r="15.5" fill="none" stroke="#1e293b" strokeWidth="3"/>
                   <circle cx="18" cy="18" r="15.5" fill="none" stroke="url(#progGrad)" strokeWidth="3" strokeDasharray={`${(progress/100)*97.4} 97.4`} strokeLinecap="round"/>
                   <defs>
                     <linearGradient id="progGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#a78bfa"/>
-                      <stop offset="100%" stopColor="#7c3aed"/>
+                      <stop offset="0%" stopColor="#60a5fa"/>
+                      <stop offset="100%" stopColor="#2563eb"/>
                     </linearGradient>
                   </defs>
                 </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{progress}%</span>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-900">{progress}%</span>
               </div>
               <div>
                 <div className="text-xs text-slate-400">项目进度</div>
-                <div className="text-sm font-semibold text-white">{done}/{total} 任务完成</div>
+                <div className="text-sm font-semibold text-slate-900">{done}/{total} 任务完成</div>
               </div>
             </div>
 
             {/* Countdown */}
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 ${terminated ? 'opacity-50' : ''}`}>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 ${terminated ? 'opacity-50' : ''}`}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={terminated ? '#64748b' : '#f59e0b'} strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
               <div>
-                <div className="text-xs text-slate-500">距上市倒计时</div>
-                <div className={`text-lg font-bold ${terminated ? 'text-slate-500' : countdown <= 30 ? 'text-red-400' : countdown <= 45 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                <div className="text-xs text-slate-400">距上市倒计时</div>
+                <div className={`text-lg font-bold ${terminated ? 'text-slate-400' : countdown <= 30 ? 'text-red-600' : countdown <= 45 ? 'text-amber-600' : 'text-green-500'}`}>
                   {terminated ? '已终止' : countdown + '天'}
                 </div>
               </div>
@@ -601,10 +602,10 @@
                   disabled={terminated}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 ${
                     terminated
-                      ? 'bg-slate-800/30 border border-slate-700/20 text-slate-600 cursor-not-allowed'
+                      ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
                       : hasDelayed
-                        ? 'bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30'
-                        : 'bg-slate-700/50 border border-slate-600/30 text-slate-400'
+                        ? 'bg-red-100 border border-red-300 text-red-600 hover:bg-red-100'
+                        : 'bg-slate-100 border border-slate-200 text-slate-400'
                   }`}
                 >
                   {hasDelayed && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse-slow"/>}
@@ -617,21 +618,21 @@
 
                 {riskOpen && activeNotifications.length > 0 && (
                   <div className="absolute right-0 top-full mt-2 w-96 z-[1000] animate-fade-in">
-                    <div className="rounded-xl p-4 shadow-2xl border border-red-500/40 bg-slate-800">
-                      <div className="text-sm font-semibold text-red-400 mb-3">⚠️ 需关注的风险项</div>
+                    <div className="rounded-xl p-4 shadow-2xl border border-red-300 bg-white">
+                      <div className="text-sm font-semibold text-red-600 mb-3">⚠️ 需关注的风险项</div>
                       {activeNotifications.map((notif, i) => (
-                      <div key={notif.id} className={`${i > 0 ? 'mt-3 pt-3 border-t border-slate-600/50' : ''}`}>
+                      <div key={notif.id} className={`${i > 0 ? 'mt-3 pt-3 border-t border-slate-200' : ''}`}>
                         <div className="flex items-start gap-2">
                           <span className="text-lg">{notif.type === 'rework' ? '🔧' : '⏰'}</span>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-slate-200">{notif.title}</div>
+                            <div className="text-sm font-medium text-slate-700">{notif.title}</div>
                             <div className="text-xs text-slate-400 mt-1">原因：{notif.reason}</div>
                             <div className="text-xs text-slate-400">影响：{notif.impact}</div>
-                            <div className="text-xs text-amber-400 mt-1">预计恢复：{notif.expectedRecovery}</div>
-                            <div className="text-xs text-red-400 mt-1">
+                            <div className="text-xs text-amber-600 mt-1">预计恢复：{notif.expectedRecovery}</div>
+                            <div className="text-xs text-red-600 mt-1">
                               ⏱ 当前倒计时：{notif.currentCountdown}天
                               {notif.originalCountdown > notif.currentCountdown && (
-                                <span className="text-slate-500 ml-1">(原{notif.originalCountdown}天)</span>
+                                <span className="text-slate-400 ml-1">(原{notif.originalCountdown}天)</span>
                               )}
                             </div>
                           </div>
@@ -647,7 +648,7 @@
             {!terminated && (
               <button
                 onClick={onTerminate}
-                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 transition-all text-xs font-medium flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 hover:border-red-300 transition-all text-xs font-medium flex-shrink-0"
                 title="终止整个项目"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -658,8 +659,8 @@
               </button>
             )}
             {terminated && (
-              <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-slate-800/50 text-slate-600 text-xs font-medium flex-shrink-0">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+              <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-slate-100 text-slate-400 text-xs font-medium flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"/>
                   <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
                 </svg>
@@ -669,8 +670,8 @@
           </div>
 
           {/* Mini progress bar */}
-          <div className="mt-3 h-1.5 rounded-full bg-slate-700/50 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-600 transition-all duration-500" style={{ width: `${progress}%` }}/>
+          <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500" style={{ width: `${progress}%` }}/>
           </div>
         </div>
       </div>
@@ -686,11 +687,11 @@
       return (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
-          <div className="relative w-full max-w-md bg-dark-700 border-l border-slate-600/50 shadow-2xl animate-slide-up overflow-y-auto">
+          <div className="relative w-full max-w-md bg-white border-l border-slate-200 shadow-2xl animate-slide-up overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-bold text-white">{node.name}</h2>
-                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-1">
+                <h2 className="text-lg font-bold text-slate-900">{node.name}</h2>
+                <button onClick={onClose} className="text-slate-400 hover:text-slate-900 transition-colors p-1">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
               </div>
@@ -703,46 +704,46 @@
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="bg-slate-100 rounded-lg p-3">
                     <div className="text-xs text-slate-400">所属阶段</div>
-                    <div className="text-sm text-slate-200 mt-1">{phaseName}</div>
+                    <div className="text-sm text-slate-700 mt-1">{phaseName}</div>
                   </div>
-                  <div className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="bg-slate-100 rounded-lg p-3">
                     <div className="text-xs text-slate-400">计划开始</div>
-                    <div className="text-sm text-slate-200 mt-1">{fmtDate(node.planStart)}</div>
+                    <div className="text-sm text-slate-700 mt-1">{fmtDate(node.planStart)}</div>
                   </div>
-                  <div className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="bg-slate-100 rounded-lg p-3">
                     <div className="text-xs text-slate-400">计划结束</div>
-                    <div className="text-sm text-slate-200 mt-1">{fmtDate(node.planEnd)}</div>
+                    <div className="text-sm text-slate-700 mt-1">{fmtDate(node.planEnd)}</div>
                   </div>
-                  <div className="bg-slate-800/50 rounded-lg p-3">
+                  <div className="bg-slate-100 rounded-lg p-3">
                     <div className="text-xs text-slate-400">前置依赖</div>
-                    <div className="text-sm text-slate-200 mt-1">{node.dependsOn.length > 0 ? node.dependsOn.length + ' 个' : '无'}</div>
+                    <div className="text-sm text-slate-700 mt-1">{node.dependsOn.length > 0 ? node.dependsOn.length + ' 个' : '无'}</div>
                   </div>
                 </div>
 
                 {node.delay && (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                    <div className="text-sm font-medium text-red-400 mb-2">⛔ 延期详情</div>
-                    <div className="text-xs text-slate-300">原因：{node.delay.reason}</div>
-                    <div className="text-xs text-slate-300 mt-1">预计恢复：{fmtDate(node.delay.expectedRecovery)}</div>
-                    <div className="text-xs text-amber-400 mt-1">影响天数：{node.delay.impactDays} 天</div>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div className="text-sm font-medium text-red-600 mb-2">⛔ 延期详情</div>
+                    <div className="text-xs text-slate-400">原因：{node.delay.reason}</div>
+                    <div className="text-xs text-slate-400 mt-1">预计恢复：{fmtDate(node.delay.expectedRecovery)}</div>
+                    <div className="text-xs text-amber-600 mt-1">影响天数：{node.delay.impactDays} 天</div>
                   </div>
                 )}
 
                 {node.reworkV2Id && (
-                  <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
-                    <div className="text-sm font-medium text-orange-400">🔄 已发起返修 (V2)</div>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                    <div className="text-sm font-medium text-orange-600">🔄 已发起返修 (V2)</div>
                   </div>
                 )}
 
                 {/* Action buttons */}
-                <div className="pt-4 border-t border-slate-600/30 space-y-2">
+                <div className="pt-4 border-t border-slate-200 space-y-2">
                   {/* Mark as completed — available for unresolved nodes */}
                   {(node.status === 'delayed' || node.status === 'frozen' || node.status === 'ongoing') && (
                     <button
                       onClick={() => { onMarkCompleted(node.id); onClose(); }}
-                      className="w-full px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 rounded-lg text-sm font-medium transition-all"
+                      className="w-full px-4 py-2.5 bg-green-100 hover:bg-green-100 border border-green-200 text-green-500 rounded-lg text-sm font-medium transition-all"
                     >
                       ✅ 标记为已完成
                     </button>
@@ -750,7 +751,7 @@
                   {(node.status === 'ongoing' || node.status === 'pending') && (
                     <button
                       onClick={() => { onMarkDelay(node.id); onClose(); }}
-                      className="w-full px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 rounded-lg text-sm font-medium transition-all"
+                      className="w-full px-4 py-2.5 bg-red-100 hover:bg-red-100 border border-red-300 text-red-600 rounded-lg text-sm font-medium transition-all"
                     >
                       ⛔ 标记为延期（异常上报）
                     </button>
@@ -758,14 +759,14 @@
                   {node.status === 'pending' && (
                     <button
                       onClick={() => { onRework(node.id); onClose(); }}
-                      className="w-full px-4 py-2.5 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-400 rounded-lg text-sm font-medium transition-all"
+                      className="w-full px-4 py-2.5 bg-orange-100 hover:bg-orange-100 border border-orange-300 text-orange-600 rounded-lg text-sm font-medium transition-all"
                     >
                       🔧 发起返修变更
                     </button>
                   )}
                   {/* Show solution hint for delayed nodes */}
                   {node.status === 'delayed' && node.delay && (
-                    <div className="text-xs text-slate-500 bg-slate-800/50 rounded-lg px-3 py-2">
+                    <div className="text-xs text-slate-400 bg-slate-100 rounded-lg px-3 py-2">
                       💡 问题解决后点击上方「✅ 标记为已完成」闭环，系统会自动清除延期标记并记录修复时间
                     </div>
                   )}
@@ -801,43 +802,43 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
-          <div className="relative w-full max-w-md bg-dark-700 border border-slate-600/50 rounded-xl shadow-2xl animate-fade-in p-6">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-2xl animate-fade-in p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">⛔ 延期异常上报</h2>
-              <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+              <h2 className="text-lg font-bold text-slate-900">⛔ 延期异常上报</h2>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-900 p-1">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             </div>
 
-            <div className="mb-4 p-3 bg-slate-800/50 rounded-lg">
+            <div className="mb-4 p-3 bg-slate-100 rounded-lg">
               <div className="text-sm text-slate-400">节点</div>
-              <div className="text-sm font-medium text-white mt-1">{node.name}</div>
+              <div className="text-sm font-medium text-slate-900 mt-1">{node.name}</div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">延期原因 <span className="text-red-400">*</span></label>
+                <label className="block text-sm font-medium text-slate-400 mb-1.5">延期原因 <span className="text-red-600">*</span></label>
                 <textarea
                   value={reason}
                   onChange={e => setReason(e.target.value)}
                   placeholder="请输入延期原因，如：分模线问题、模具开裂..."
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 resize-none h-20"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 placeholder-slate-500 focus:outline-none focus:border-blue-200 focus:ring-1 focus:ring-blue-200 resize-none h-20"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">预计恢复日期 <span className="text-red-400">*</span></label>
+                <label className="block text-sm font-medium text-slate-400 mb-1.5">预计恢复日期 <span className="text-red-600">*</span></label>
                 <input
                   type="date"
                   value={recoveryDate || defaultDate}
                   onChange={e => setRecoveryDate(e.target.value)}
                   min={dateStr(TODAY)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-blue-200 focus:ring-1 focus:ring-blue-200"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">预估影响天数</label>
+                <label className="block text-sm font-medium text-slate-400 mb-1.5">预估影响天数</label>
                 <div className="flex gap-2">
                   {[1, 2, 3, 5, 7, 10].map(d => (
                     <button
@@ -845,19 +846,19 @@
                       onClick={() => setImpactDays(d)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         impactDays === d
-                          ? 'bg-red-500/30 border border-red-500/50 text-red-300'
-                          : 'bg-slate-800 border border-slate-600 text-slate-400 hover:border-slate-500'
+                          ? 'bg-red-100 border border-red-300 text-red-600'
+                          : 'bg-white border border-slate-300 text-slate-400 hover:border-slate-500'
                       }`}
                     >{d}天</button>
                   ))}
                 </div>
               </div>
 
-              {error && <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</div>}
+              {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>}
 
               <div className="flex gap-3 pt-2">
-                <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-all">取消</button>
-                <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-300 rounded-lg text-sm font-medium transition-all">提交延期</button>
+                <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-300 text-slate-400 rounded-lg text-sm font-medium transition-all">取消</button>
+                <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-red-100 hover:bg-red-100 border border-red-300 text-red-600 rounded-lg text-sm font-medium transition-all">提交延期</button>
               </div>
             </div>
           </div>
@@ -884,24 +885,24 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
-          <div className="relative w-full max-w-md bg-dark-700 border border-slate-600/50 rounded-xl shadow-2xl animate-fade-in p-6">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-2xl animate-fade-in p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">🔧 发起返修变更</h2>
-              <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+              <h2 className="text-lg font-bold text-slate-900">🔧 发起返修变更</h2>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-900 p-1">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             </div>
 
-            <div className="mb-4 p-3 bg-slate-800/50 rounded-lg">
+            <div className="mb-4 p-3 bg-slate-100 rounded-lg">
               <div className="text-xs text-slate-400">返修来源</div>
-              <div className="text-sm font-medium text-white mt-1">{srcNode.name}</div>
+              <div className="text-sm font-medium text-slate-900 mt-1">{srcNode.name}</div>
               <div className="text-xs text-slate-400 mt-1">
                 所属阶段：{phases.find(p => p.id === srcNode.phaseId)?.name}
               </div>
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">选择需要返修的目标阶段 <span className="text-red-400">*</span></label>
+              <label className="block text-sm font-medium text-slate-400 mb-1.5">选择需要返修的目标阶段 <span className="text-red-600">*</span></label>
               <div className="space-y-2">
                 {validTargets.map(p => (
                   <button
@@ -909,8 +910,8 @@
                     onClick={() => setTargetPhaseId(p.id)}
                     className={`w-full px-4 py-3 rounded-lg text-sm text-left transition-all ${
                       targetPhaseId === p.id
-                        ? 'bg-orange-500/20 border border-orange-500/50 text-orange-300'
-                        : 'bg-slate-800 border border-slate-600 text-slate-300 hover:border-slate-500'
+                        ? 'bg-orange-100 border border-orange-300 text-orange-600'
+                        : 'bg-white border border-slate-300 text-slate-400 hover:border-slate-500'
                     }`}
                   >
                     <div className="font-medium">{p.name}</div>
@@ -920,8 +921,8 @@
               </div>
             </div>
 
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-4">
-              <div className="text-xs text-amber-400">系统将自动执行：</div>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+              <div className="text-xs text-amber-600">系统将自动执行：</div>
               <ul className="text-xs text-slate-400 mt-1 space-y-0.5">
                 <li>✅ 在目标阶段创建 V2 返修子节点</li>
                 <li>⏸️ 当前节点「{srcNode.name}」冻结为等待资源</li>
@@ -930,11 +931,11 @@
               </ul>
             </div>
 
-            {error && <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 mb-4">{error}</div>}
+            {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-4">{error}</div>}
 
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-all">取消</button>
-              <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-orange-500/30 hover:bg-orange-500/40 border border-orange-500/50 text-orange-300 rounded-lg text-sm font-medium transition-all">确认发起返修</button>
+              <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-300 text-slate-400 rounded-lg text-sm font-medium transition-all">取消</button>
+              <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-orange-100 hover:bg-orange-100 border border-orange-300 text-orange-600 rounded-lg text-sm font-medium transition-all">确认发起返修</button>
             </div>
           </div>
         </div>
@@ -954,32 +955,32 @@
           onClick={() => onClick(node)}
           className={`node-card relative group p-3 rounded-xl cursor-pointer transition-all ${
             isDelayed
-              ? 'bg-red-500/10 border-2 border-red-500/50 delay-pulse'
+              ? 'bg-red-50 border-2 border-red-300 delay-pulse'
               : isRework
-                ? 'bg-orange-500/10 border border-orange-500/40 rework-flash'
+                ? 'bg-orange-50 border border-orange-300 rework-flash'
                 : isFrozen
-                  ? 'bg-purple-500/10 border border-purple-500/30'
+                  ? 'bg-indigo-50 border border-indigo-200'
                   : node.status === 'completed'
-                    ? 'bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-500/40'
+                    ? 'bg-green-50 border border-green-200 hover:border-green-200'
                     : node.status === 'ongoing'
-                      ? 'bg-slate-700/40 border border-slate-600/40 hover:border-violet-500/40'
-                      : 'bg-slate-800/30 border border-slate-700/30 hover:border-slate-600/50'
+                      ? 'bg-slate-100 border border-slate-300 hover:border-blue-300'
+                      : 'bg-slate-100 border border-slate-200 hover:border-slate-200'
           }`}
         >
           {/* Top-right badges (existing) */}
           {isRework && (
-            <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-orange-500 rounded-full text-xs font-bold text-white shadow-lg z-10">
+            <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-orange-500 rounded-full text-xs font-bold text-slate-900 shadow-lg z-10">
               V2
             </div>
           )}
           {isDelayed && (
             <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg z-10">
-              <span className="text-xs font-bold text-white">!</span>
+              <span className="text-xs font-bold text-slate-900">!</span>
             </div>
           )}
           {isFrozen && (
-            <div className="absolute -top-2 -right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center shadow-lg z-10">
-              <span className="text-xs text-white">⏸️</span>
+            <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-lg z-10">
+              <span className="text-xs text-slate-900">⏸️</span>
             </div>
           )}
 
@@ -987,7 +988,7 @@
           {canQuickComplete && (
             <button
               onClick={(e) => { e.stopPropagation(); onMarkCompleted(node.id); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-700/80 border border-slate-500/50 hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:scale-110 z-20 shadow-lg"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-100 border border-slate-200 hover:bg-green-100 hover:border-green-300 hover:scale-110 z-20 shadow-lg"
               title="快捷标记为已完成"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -999,23 +1000,23 @@
           <div className="flex items-start gap-2.5">
             <StatusIcon status={node.status} size={18}/>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-slate-100 truncate">{node.name}</div>
+              <div className="text-sm font-semibold text-slate-800 truncate">{node.name}</div>
               <div className="flex items-center gap-1.5 mt-1.5">
-                <span className="text-xs text-slate-500">📅</span>
+                <span className="text-xs text-slate-400">📅</span>
                 <span className="text-xs text-slate-400">{fmt(node.planStart)} - {fmt(node.planEnd)}</span>
               </div>
               <div className="mt-1.5">
                 <StatusBadge status={node.status}/>
               </div>
               {node.delay && (
-                <div className="mt-1.5 bg-red-500/15 rounded px-2 py-1">
-                  <div className="text-xs text-red-300">⚠️ {node.delay.reason}</div>
-                  <div className="text-xs text-amber-300">恢复日：{node.delay.expectedRecovery ? `${node.delay.expectedRecovery.getMonth()+1}/${node.delay.expectedRecovery.getDate()}` : '-'}</div>
+                <div className="mt-1.5 bg-red-100 rounded px-2 py-1">
+                  <div className="text-xs text-red-600">⚠️ {node.delay.reason}</div>
+                  <div className="text-xs text-amber-600">恢复日：{node.delay.expectedRecovery ? `${node.delay.expectedRecovery.getMonth()+1}/${node.delay.expectedRecovery.getDate()}` : '-'}</div>
                 </div>
               )}
               {isRework && (
-                <div className="mt-1.5 bg-orange-500/15 rounded px-2 py-1">
-                  <div className="text-xs text-orange-300">🔄 返修进行中</div>
+                <div className="mt-1.5 bg-orange-50 rounded px-2 py-1">
+                  <div className="text-xs text-orange-600">🔄 返修进行中</div>
                 </div>
               )}
             </div>
@@ -1034,24 +1035,24 @@
       return (
         <div className="phase-scroll flex-shrink-0 w-[280px] md:w-[300px]">
           <div className={`glass-card rounded-xl overflow-hidden h-full transition-all duration-300 ${
-            gatePassed ? 'ring-1 ring-emerald-500/30' : ''
+            gatePassed ? 'ring-1 ring-green-200' : ''
           }`}>
             {/* Phase header */}
-            <div className="px-4 py-3 border-b border-slate-600/40" style={{ borderLeftColor: phase.color, borderLeftWidth: 3 }}>
+            <div className="px-4 py-3 border-b border-slate-300" style={{ borderLeftColor: phase.color, borderLeftWidth: 3 }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <h3 className="text-sm font-bold text-white truncate">{phase.name}</h3>
+                  <h3 className="text-sm font-bold text-slate-900 truncate">{phase.name}</h3>
                   {hasBlocker && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse-slow flex-shrink-0" title="存在阻塞项"/>}
-                  {gatePassed && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">阶段门已过</span>}
+                  {gatePassed && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-200 flex-shrink-0">阶段门已过</span>}
                 </div>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
-                  phaseProgress === 100 ? 'bg-emerald-500/20 text-emerald-400' :
-                  phaseProgress > 0 ? 'bg-violet-500/20 text-violet-400' :
-                  'bg-slate-600/30 text-slate-400'
+                  phaseProgress === 100 ? 'bg-green-50 text-green-600' :
+                  phaseProgress > 0 ? 'bg-blue-100 text-blue-400' :
+                  'bg-slate-200 text-slate-400'
                 }`}>{done}/{total}</span>
               </div>
               {/* Phase mini progress */}
-              <div className="mt-2 h-1 rounded-full bg-slate-700/50 overflow-hidden">
+              <div className="mt-2 h-1 rounded-full bg-slate-100 overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${phaseProgress}%`, backgroundColor: gatePassed ? '#10b981' : phase.color }}/>
               </div>
             </div>
@@ -1076,17 +1077,17 @@
                 onClick={() => onGateReview(phase.id)}
                 className={`w-full px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
                   gatePassed
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 cursor-default'
+                    ? 'bg-green-50 border-green-200 text-green-500 cursor-default'
                     : hasBlocker
-                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
-                      : 'bg-violet-500/10 border-violet-500/25 text-violet-300 hover:bg-violet-500/20'
+                      ? 'bg-amber-50 border-amber-300 text-amber-600 hover:bg-amber-100'
+                      : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
                 }`}
               >
                 <div className="flex items-center justify-center gap-1.5">
                   {gatePassed ? (
                     <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>✅ 阶段门已通过</span></>
                   ) : (
-                    <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>阶段门审查</span>{hasBlocker && <span className="text-[10px] px-1 py-0.5 rounded bg-red-500/20 text-red-300 ml-1">有阻塞</span>}</>
+                    <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>阶段门审查</span>{hasBlocker && <span className="text-[10px] px-1 py-0.5 rounded bg-red-100 text-red-600 ml-1">有阻塞</span>}</>
                   )}
                 </div>
               </button>
@@ -1113,9 +1114,9 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
-          <div className="relative w-full max-w-2xl bg-dark-700 border border-slate-600/50 rounded-xl shadow-2xl animate-fade-in max-h-[85vh] flex flex-col">
+          <div className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-xl shadow-2xl animate-fade-in max-h-[85vh] flex flex-col">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-600/30 flex items-center justify-between flex-shrink-0">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: phase.color + '20' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={phase.color} strokeWidth="2">
@@ -1123,17 +1124,17 @@
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">阶段门审查：{phase.name}</h2>
+                  <h2 className="text-lg font-bold text-slate-900">阶段门审查：{phase.name}</h2>
                   <div className="text-xs text-slate-400 mt-0.5">
                     审查状态：
                     {gateInfo?.status === 'passed'
-                      ? <span className="text-emerald-400 font-medium"> ✅ 已通过（{fmtDate(gateInfo.passedAt)}）</span>
-                      : <span className="text-amber-400 font-medium"> ⏳ 待审查</span>
+                      ? <span className="text-green-500 font-medium"> ✅ 已通过（{fmtDate(gateInfo.passedAt)}）</span>
+                      : <span className="text-amber-600 font-medium"> ⏳ 待审查</span>
                     }
                   </div>
                 </div>
               </div>
-              <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-900 p-1">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             </div>
@@ -1141,38 +1142,38 @@
             {/* Body */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
               {/* Progress */}
-              <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="bg-slate-100 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-200">阶段进度</span>
+                  <span className="text-sm font-medium text-slate-700">阶段进度</span>
                   <span className="text-sm text-slate-400">{done}/{total} 节点完成</span>
                 </div>
-                <div className="h-2 rounded-full bg-slate-700/50 overflow-hidden">
+                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(done/total)*100}%`, backgroundColor: phase.color }}/>
                 </div>
               </div>
 
               {/* Node Checklist */}
               <div>
-                <h4 className="text-sm font-semibold text-slate-200 mb-3">📋 节点审查清单</h4>
+                <h4 className="text-sm font-semibold text-slate-700 mb-3">📋 节点审查清单</h4>
                 <div className="space-y-2">
                   {nodes.map(node => (
                     <div key={node.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
-                      node.status === 'delayed' ? 'bg-red-500/10 border border-red-500/20' :
-                      node.status === 'frozen' ? 'bg-purple-500/10 border border-purple-500/20' :
-                      node.status === 'ongoing' ? 'bg-violet-500/5 border border-violet-500/10' :
-                      node.status === 'completed' ? 'bg-emerald-500/5 border border-emerald-500/10' :
-                      'bg-slate-800/30 border border-slate-700/20'
+                      node.status === 'delayed' ? 'bg-red-50 border border-red-200' :
+                      node.status === 'frozen' ? 'bg-indigo-50 border border-indigo-200' :
+                      node.status === 'ongoing' ? 'bg-blue-50 border border-blue-200' :
+                      node.status === 'completed' ? 'bg-green-50 border border-green-100' :
+                      'bg-slate-100 border border-slate-200'
                     }`}>
                       <StatusIcon status={node.status} size={18}/>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-200">{node.name}</span>
+                          <span className="text-sm font-medium text-slate-700">{node.name}</span>
                           <StatusBadge status={node.status}/>
-                          {node.isRework && <span className="px-1 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-300 font-bold">V2 返修</span>}
+                          {node.isRework && <span className="px-1 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600 font-bold">V2 返修</span>}
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
+                        <div className="text-xs text-slate-400 mt-0.5">
                           计划：{fmtDate(node.planStart)} - {fmtDate(node.planEnd)}
-                          {node.delay && <span className="text-red-400 ml-2">⚠️ {node.delay.reason}</span>}
+                          {node.delay && <span className="text-red-600 ml-2">⚠️ {node.delay.reason}</span>}
                         </div>
                       </div>
                     </div>
@@ -1182,20 +1183,20 @@
 
               {/* Blockers */}
               {blockers.length > 0 && (
-                <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-red-400 mb-2">⛔ 阻塞项（{blockers.length}）</h4>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-red-600 mb-2">⛔ 阻塞项（{blockers.length}）</h4>
                   <div className="space-y-2">
                     {blockers.map(b => (
-                      <div key={b.id} className="text-xs text-slate-300 flex items-start gap-2">
+                      <div key={b.id} className="text-xs text-slate-400 flex items-start gap-2">
                         <span>•</span>
                         <div>
                           <span className="font-medium">{b.name}</span>
-                          {b.delay && <span className="text-red-300 ml-1">— {b.delay.reason}</span>}
-                          {b.status === 'frozen' && <span className="text-purple-300 ml-1">— 等待 V2 返修</span>}
+                          {b.delay && <span className="text-red-600 ml-1">— {b.delay.reason}</span>}
+                          {b.status === 'frozen' && <span className="text-blue-300 ml-1">— 等待 V2 返修</span>}
                         </div>
                       </div>
                     ))}
-                    <div className="mt-2 text-xs text-amber-400">
+                    <div className="mt-2 text-xs text-amber-600">
                       💡 建议：先解决上述阻塞项再通过阶段门，或标记为"有条件通过"并设定跟踪项
                     </div>
                   </div>
@@ -1203,12 +1204,12 @@
               )}
 
               {/* Gate Decision */}
-              <div className="bg-slate-800/30 border border-slate-600/30 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-slate-200 mb-3">🎯 阶段门决策</h4>
+              <div className="bg-slate-100 border border-slate-200 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-slate-700 mb-3">🎯 阶段门决策</h4>
 
                 {gateInfo?.status === 'passed' ? (
                   <div>
-                    <div className="flex items-center gap-2 text-sm text-emerald-400 mb-2">
+                    <div className="flex items-center gap-2 text-sm text-green-500 mb-2">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                       <span className="font-bold">此阶段门已于 {fmtDate(gateInfo.passedAt)} 通过</span>
                     </div>
@@ -1220,8 +1221,8 @@
                   <div>
                     <div className="text-xs text-slate-400 mb-3 space-y-1">
                       <div>💡 通过阶段门表示：本阶段工作已确认，管理决策同意进入下一阶段</div>
-                      <div className="text-slate-500">操作后将：</div>
-                      <ul className="text-slate-500 list-disc pl-4 space-y-0.5">
+                      <div className="text-slate-400">操作后将：</div>
+                      <ul className="text-slate-400 list-disc pl-4 space-y-0.5">
                         <li>阶段卡片显示「✅ 阶段门已过」状态标识</li>
                         <li>阶段门状态从「待审查」变为「已通过」</li>
                         <li>记录决策日志并推送到企业微信群通知全员</li>
@@ -1232,15 +1233,15 @@
                         onClick={() => { onPassGate(phaseId); onClose(); }}
                         className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                           blockers.length > 0
-                            ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
-                            : 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
+                            ? 'bg-amber-100 border border-amber-300 text-amber-600 hover:bg-amber-100'
+                            : 'bg-green-100 border border-green-200 text-emerald-300 hover:bg-green-100'
                         }`}
                       >
                         {blockers.length > 0 ? '⚠️ 有条件通过阶段门' : '✅ 确认通过阶段门'}
                       </button>
                       <button
                         onClick={onClose}
-                        className="px-4 py-2.5 rounded-lg text-sm font-medium bg-slate-700 border border-slate-600/30 text-slate-300 hover:bg-slate-600 transition-all"
+                        className="px-4 py-2.5 rounded-lg text-sm font-medium bg-slate-100 border border-slate-200 text-slate-400 hover:bg-slate-300 transition-all"
                       >
                         暂不通过，关闭
                       </button>
@@ -1275,26 +1276,26 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={onClose}/>
-          <div className="relative w-full max-w-md bg-dark-700 border border-slate-600/50 rounded-xl shadow-2xl animate-fade-in p-6">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-2xl animate-fade-in p-6">
             {step === 1 ? (
               <>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
                         <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
                       </svg>
                     </div>
-                    <h2 className="text-lg font-bold text-white">确认终止项目</h2>
+                    <h2 className="text-lg font-bold text-slate-900">确认终止项目</h2>
                   </div>
-                  <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                  <button onClick={onClose} className="text-slate-400 hover:text-slate-900 p-1">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
                 </div>
 
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-4">
-                  <div className="text-sm font-bold text-red-400 mb-2">⚠️ 此操作不可撤销！</div>
-                  <ul className="text-xs text-slate-300 space-y-1.5">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <div className="text-sm font-bold text-red-600 mb-2">⚠️ 此操作不可撤销！</div>
+                  <ul className="text-xs text-slate-400 space-y-1.5">
                     <li>• 所有未完成任务将被冻结</li>
                     <li>• 阶段门状态将被清除</li>
                     <li>• 上市倒计时停止</li>
@@ -1304,28 +1305,28 @@
                 </div>
 
                 <div className="flex gap-3">
-                  <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-all">取消</button>
-                  <button onClick={handleConfirm} className="flex-1 px-4 py-2.5 bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-300 rounded-lg text-sm font-medium transition-all">下一步</button>
+                  <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-300 text-slate-400 rounded-lg text-sm font-medium transition-all">取消</button>
+                  <button onClick={handleConfirm} className="flex-1 px-4 py-2.5 bg-red-100 hover:bg-red-100 border border-red-300 text-red-600 rounded-lg text-sm font-medium transition-all">下一步</button>
                 </div>
               </>
             ) : (
               <>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
                         <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
                       </svg>
                     </div>
-                    <h2 className="text-lg font-bold text-white">二次确认</h2>
+                    <h2 className="text-lg font-bold text-slate-900">二次确认</h2>
                   </div>
-                  <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                  <button onClick={onClose} className="text-slate-400 hover:text-slate-900 p-1">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
                 </div>
 
-                <div className="text-sm text-slate-300 mb-3">
-                  请输入 <span className="text-red-400 font-bold">「终止」</span> 以确认操作：
+                <div className="text-sm text-slate-400 mb-3">
+                  请输入 <span className="text-red-600 font-bold">「终止」</span> 以确认操作：
                 </div>
                 <input
                   type="text"
@@ -1333,20 +1334,20 @@
                   onChange={e => { setInput(e.target.value); setError(''); }}
                   onKeyDown={e => { if (e.key === 'Enter' && input === '终止') handleConfirm(); }}
                   placeholder="请输入「终止」"
-                  className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30 mb-3"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 placeholder-slate-500 focus:outline-none focus:border-red-300 focus:ring-1 focus:ring-red-200 mb-3"
                   autoFocus
                 />
-                {error && <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 mb-3">{error}</div>}
+                {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{error}</div>}
 
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(1)} className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-all">返回</button>
+                  <button onClick={() => setStep(1)} className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-300 text-slate-400 rounded-lg text-sm font-medium transition-all">返回</button>
                   <button
                     onClick={handleConfirm}
                     disabled={input !== '终止'}
                     className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       input === '终止'
-                        ? 'bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-red-300'
-                        : 'bg-slate-800/50 border border-slate-700/30 text-slate-600 cursor-not-allowed'
+                        ? 'bg-red-100 hover:bg-red-100 border border-red-300 text-red-600'
+                        : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
                     }`}
                   >
                     确认终止
@@ -1378,42 +1379,42 @@
         client_reject: { border: 'border-l-red-500', icon: '⛔' },
         delay: { border: 'border-l-red-500', icon: '⏰' },
         rework: { border: 'border-l-orange-500', icon: '🔧' },
-        batch_advance: { border: 'border-l-violet-500', icon: '▶' },
+        batch_advance: { border: 'border-border-l-blue-500', icon: '▶' },
       };
       const s = typeStyles[latest.type] || { border: 'border-l-slate-500', icon: '📢' };
 
       const toastNode = (
         <div className="fixed top-4 right-4 z-[9999] animate-slide-up max-w-[400px] min-w-[320px]" style={{ zIndex: 99999 }}>
-          <div className={`rounded-xl shadow-2xl border border-slate-600 bg-slate-800 border-l-4 ${s.border} overflow-hidden`}>
+          <div className={`rounded-xl shadow-2xl border border-slate-300 bg-white border-l-4 ${s.border} overflow-hidden`}>
             {/* Head */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border-b border-slate-600">
-              <div className="w-5 h-5 rounded bg-emerald-500/30 flex items-center justify-center">
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-300">
+              <div className="w-5 h-5 rounded bg-green-100 flex items-center justify-center">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
               </div>
-              <span className="text-xs font-semibold text-emerald-400">企业微信 · 项目群</span>
+              <span className="text-xs font-semibold text-green-500">企业微信 · 项目群</span>
               <span className="flex-1"/>
-              <button onClick={() => setDismissed(true)} className="text-xs text-slate-500 hover:text-slate-300">✕</button>
+              <button onClick={() => setDismissed(true)} className="text-xs text-slate-400 hover:text-slate-400">✕</button>
             </div>
             {/* Body */}
             <div className="px-3 py-3">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className={`w-2 h-2 rounded-full ${latest.type === 'client_reject' ? 'bg-red-500 animate-pulse-slow' : 'bg-emerald-500'}`}/>
-                <span className="text-xs font-bold text-white">
+                <span className="text-xs font-bold text-slate-900">
                   「智能空气炸锅 X7」项目通知
                 </span>
               </div>
-              <div className="text-sm font-bold text-slate-100 mb-1">
+              <div className="text-sm font-bold text-slate-800 mb-1">
                 {s.icon} {latest.action}
               </div>
               <div className="text-xs text-slate-400 mb-1">{latest.detail}</div>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-slate-400">
                 <span>👤 {latest.user}</span>
                 <span>🕐 {new Date(latest.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
-              <div className="mt-2 pt-2 border-t border-slate-600/30 flex items-center gap-2 text-xs">
-                <span className="text-slate-500">📨 已推送到「X7 项目协同群」</span>
-                <span className="w-1 h-1 rounded-full bg-slate-600"/>
-                <span className="text-emerald-500">3 人已读</span>
+              <div className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-2 text-xs">
+                <span className="text-slate-400">📨 已推送到「X7 项目协同群」</span>
+                <span className="w-1 h-1 rounded-full bg-slate-200"/>
+                <span className="text-green-600">3 人已读</span>
               </div>
             </div>
           </div>
@@ -1428,11 +1429,11 @@
       const logList = useMemo(() => [...logs].reverse(), [logs]);
 
       const typeMap = {
-        client_confirm: { icon: '✅', color: 'text-emerald-400', label: '客户确认' },
-        client_reject: { icon: '❌', color: 'text-red-400', label: '客户驳回' },
-        delay: { icon: '⛔', color: 'text-red-400', label: '延期上报' },
-        rework: { icon: '🔧', color: 'text-orange-400', label: '返修发起' },
-        batch_advance: { icon: '▶', color: 'text-violet-400', label: '批量推进' },
+        client_confirm: { icon: '✅', color: 'text-green-500', label: '客户确认' },
+        client_reject: { icon: '❌', color: 'text-red-600', label: '客户驳回' },
+        delay: { icon: '⛔', color: 'text-red-600', label: '延期上报' },
+        rework: { icon: '🔧', color: 'text-orange-600', label: '返修发起' },
+        batch_advance: { icon: '▶', color: 'text-blue-400', label: '批量推进' },
         system: { icon: 'ℹ️', color: 'text-blue-400', label: '系统' },
       };
 
@@ -1440,7 +1441,7 @@
         <div className="glass-card rounded-xl overflow-hidden">
           <button
             onClick={() => setOpen(!open)}
-            className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700/30 transition-colors"
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-100 transition-colors"
           >
             <div className="flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
@@ -1449,13 +1450,13 @@
                 <line x1="16" y1="13" x2="8" y2="13"/>
                 <line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
-              <span className="text-sm font-semibold text-slate-200">操作记录</span>
-              <span className="px-1.5 py-0.5 rounded text-xs bg-slate-600/30 text-slate-400">{logs.length}</span>
-              <span className="px-1.5 py-0.5 rounded text-xs bg-green-500/20 text-green-400">企业微信群同步</span>
+              <span className="text-sm font-semibold text-slate-700">操作记录</span>
+              <span className="px-1.5 py-0.5 rounded text-xs bg-slate-200 text-slate-400">{logs.length}</span>
+              <span className="px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-400">企业微信群同步</span>
             </div>
             <div className="flex items-center gap-2">
               {logs.length > 1 && (
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-400">
                   最新：{new Date(logs[logs.length-1]?.timestamp || Date.now()).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
@@ -1466,38 +1467,38 @@
           </button>
 
           {open && (
-            <div className="max-h-[320px] overflow-y-auto border-t border-slate-600/30">
+            <div className="max-h-[320px] overflow-y-auto border-t border-slate-200">
               {logList.length === 0 && (
-                <div className="px-4 py-6 text-center text-sm text-slate-500">暂无操作记录</div>
+                <div className="px-4 py-6 text-center text-sm text-slate-400">暂无操作记录</div>
               )}
               {logList.map(log => {
                 const t = typeMap[log.type] || { icon: '📋', color: 'text-slate-400', label: '操作' };
                 return (
-                  <div key={log.id} className="px-4 py-2.5 border-b border-slate-600/20 hover:bg-slate-700/20 transition-colors last:border-b-0">
+                  <div key={log.id} className="px-4 py-2.5 border-b border-slate-300 hover:bg-slate-100 transition-colors last:border-b-0">
                     <div className="flex items-start gap-2.5">
                       <span className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                        log.type.startsWith('client') ? 'bg-sky-500/10' :
-                        log.type === 'delay' ? 'bg-red-500/10' :
-                        log.type === 'rework' ? 'bg-orange-500/10' :
-                        'bg-slate-600/20'
+                        log.type.startsWith('client') ? 'bg-blue-50' :
+                        log.type === 'delay' ? 'bg-red-50' :
+                        log.type === 'rework' ? 'bg-orange-50' :
+                        'bg-slate-200'
                       }`}>{t.icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`text-xs font-semibold ${t.color}`}>{t.label}</span>
                           {log.type === 'client_reject' && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500/20 text-red-300 font-bold animate-pulse-slow">⚠️ 需紧急处理</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-600 font-bold animate-pulse-slow">⚠️ 需紧急处理</span>
                           )}
                           {log.type === 'rework' && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-300">V2</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600">V2</span>
                           )}
-                          <span className="text-xs text-slate-500">·</span>
-                          <span className="text-xs text-slate-200 font-medium">{log.action}</span>
+                          <span className="text-xs text-slate-400">·</span>
+                          <span className="text-xs text-slate-700 font-medium">{log.action}</span>
                         </div>
                         <div className="text-xs text-slate-400 mt-0.5">{log.detail}</div>
-                        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-500">
+                        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-400">
                           <span>👤 {log.user}</span>
                           <span>🕐 {new Date(log.timestamp).toLocaleString('zh-CN')}</span>
-                          <span className="text-emerald-500/60">📨 已同步企业微信群</span>
+                          <span className="text-green-600/60">📨 已同步企业微信群</span>
                         </div>
                       </div>
                     </div>
@@ -1527,10 +1528,10 @@
         <div className="mt-5">
           <div className="flex items-center gap-2 mb-3">
             {unresolved.length > 0 && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse-slow"/>}
-            <h3 className="text-sm font-semibold text-slate-200">
+            <h3 className="text-sm font-semibold text-slate-700">
               客户协同通知栏
               {unresolved.length > 0 && <span className="text-slate-400 font-normal ml-1">— {unresolved.length} 条待处理</span>}
-              <span className="text-slate-500 text-xs font-normal ml-2">共 {allItems.length} 条</span>
+              <span className="text-slate-400 text-xs font-normal ml-2">共 {allItems.length} 条</span>
             </h3>
           </div>
           <div className="space-y-2">
@@ -1542,14 +1543,14 @@
                   <div
                     key={n.id}
                     onClick={() => toggleCollapse(n.id)}
-                    className="flex items-center gap-3 px-4 py-2 rounded-lg cursor-pointer transition-all bg-slate-800/30 border border-slate-700/20 hover:bg-slate-700/30 hover:border-slate-600/30"
+                    className="flex items-center gap-3 px-4 py-2 rounded-lg cursor-pointer transition-all bg-slate-100 border border-slate-200 hover:bg-slate-100 hover:border-slate-200"
                   >
                     <span className="text-sm">{n.type === 'rework' ? '🔧' : '🔔'}</span>
                     <span className="text-xs text-slate-400 truncate flex-1">{n.title}</span>
-                    {n.clientResponse === 'confirmed' && <span className="text-[10px] text-emerald-500 flex-shrink-0">✅ 已确认</span>}
-                    {n.clientResponse === 'rejected' && <span className="text-[10px] text-red-400 flex-shrink-0">❌ 已驳回</span>}
-                    {!n.clientResponse && <span className="text-[10px] text-amber-400 flex-shrink-0">⏸️ 已忽略</span>}
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" className="flex-shrink-0"><path d="M18 15l-6-6-6 6"/></svg>
+                    {n.clientResponse === 'confirmed' && <span className="text-[10px] text-green-600 flex-shrink-0">✅ 已确认</span>}
+                    {n.clientResponse === 'rejected' && <span className="text-[10px] text-red-600 flex-shrink-0">❌ 已驳回</span>}
+                    {!n.clientResponse && <span className="text-[10px] text-amber-600 flex-shrink-0">⏸️ 已忽略</span>}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="flex-shrink-0"><path d="M18 15l-6-6-6 6"/></svg>
                   </div>
                 );
               }
@@ -1572,17 +1573,17 @@
                   <div className="flex items-start gap-3">
                     <span className="text-xl mt-0.5">{n.type === 'rework' ? '🔧' : '🔔'}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold text-slate-100">
+                      <div className="text-sm font-bold text-slate-800">
                         {n.type === 'rework' ? '【关键返修提醒】' : '【关键风险提醒】'}{n.title}
                       </div>
                       <div className="mt-2 space-y-1 text-xs">
                         <div className="text-slate-400">* 原因：{n.reason}</div>
                         <div className="text-slate-400">* 影响：{n.impact}</div>
                         <div className="text-slate-400">* 预计恢复时间：{n.expectedRecovery}</div>
-                        <div className="text-red-400 font-medium">
+                        <div className="text-red-600 font-medium">
                           * 当前倒计时：<span className="text-lg font-bold">{n.currentCountdown}天</span>
                           {n.originalCountdown > n.currentCountdown && (
-                            <span className="text-slate-500 ml-1">（原{n.originalCountdown}天）</span>
+                            <span className="text-slate-400 ml-1">（原{n.originalCountdown}天）</span>
                           )}
                         </div>
                       </div>
@@ -1592,36 +1593,36 @@
                         <div className="flex items-center gap-2 mt-3">
                           <button
                             onClick={() => onConfirm(n.id)}
-                            className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 rounded-lg text-xs font-medium transition-all"
+                            className="px-3 py-1.5 bg-green-100 hover:bg-green-100 border border-green-200 text-green-500 rounded-lg text-xs font-medium transition-all"
                           >
                             ✅ 一键确认延期
                           </button>
                           <button
                             onClick={() => onReject(n.id)}
-                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 rounded-lg text-xs font-medium transition-all"
+                            className="px-3 py-1.5 bg-red-100 hover:bg-red-100 border border-red-300 text-red-600 rounded-lg text-xs font-medium transition-all"
                           >
                             ❌ 驳回并要求加急
                           </button>
                           <button
                             onClick={() => { onDismiss(n.id); toggleCollapse(n.id); }}
-                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded-lg text-xs transition-all ml-auto"
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-300 text-slate-400 rounded-lg text-xs transition-all ml-auto"
                           >
                             稍后处理 ↕
                           </button>
                         </div>
                       )}
                       {n.clientResponse === 'confirmed' && (
-                        <div className="mt-2 text-xs text-emerald-400">✅ 客户已确认延期通知</div>
+                        <div className="mt-2 text-xs text-green-500">✅ 客户已确认延期通知</div>
                       )}
                       {n.clientResponse === 'rejected' && (
-                        <div className="mt-2 text-xs text-red-400">❌ 客户已驳回并要求加急处理</div>
+                        <div className="mt-2 text-xs text-red-600">❌ 客户已驳回并要求加急处理</div>
                       )}
 
                       {/* Expand/collapse toggle when resolved */}
                       {n.clientResponse && (
                         <button
                           onClick={() => toggleCollapse(n.id)}
-                          className="mt-2 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                          className="mt-2 text-xs text-slate-400 hover:text-slate-400 transition-colors"
                         >
                           ↕ 收起
                         </button>
@@ -1633,7 +1634,7 @@
             })}
           </div>
           {unresolved.length === 0 && (
-            <div className="text-xs text-slate-500 mt-2">
+            <div className="text-xs text-slate-400 mt-2">
               所有通知已处理。点击上方已折叠的记录可查看详情和重新操作。
             </div>
           )}
@@ -1726,7 +1727,7 @@
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
 
       return (
-        <div className="min-h-screen bg-dark-800">
+        <div className="min-h-screen bg-slate-50">
           <div className="max-w-[1600px] mx-auto px-4 py-5">
             {/* Top Header */}
             <ProjectHeader state={state} dispatch={dispatch} onTerminate={() => setTerminateModalOpen(true)} />
@@ -1761,30 +1762,30 @@
                   <div className="flex items-center gap-2 text-sm">
                     <span className="w-3 h-3 rounded-full bg-emerald-500"/>
                     <span className="text-slate-400">已完成</span>
-                    <span className="text-white font-medium">{done}</span>
+                    <span className="text-slate-900 font-medium">{done}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full bg-violet-500"/>
+                    <span className="w-3 h-3 rounded-full bg-blue-500"/>
                     <span className="text-slate-400">进行中</span>
-                    <span className="text-white font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'ongoing').length, 0)}</span>
+                    <span className="text-slate-900 font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'ongoing').length, 0)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="w-3 h-3 rounded-full bg-red-500"/>
                     <span className="text-slate-400">已延期</span>
-                    <span className="text-white font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'delayed').length, 0)}</span>
+                    <span className="text-slate-900 font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'delayed').length, 0)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full bg-purple-500"/>
+                    <span className="w-3 h-3 rounded-full bg-blue-500"/>
                     <span className="text-slate-400">冻结/等待</span>
-                    <span className="text-white font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'frozen').length, 0)}</span>
+                    <span className="text-slate-900 font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'frozen').length, 0)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="w-3 h-3 rounded-full bg-slate-500"/>
+                    <span className="w-3 h-3 rounded-full bg-slate-200"/>
                     <span className="text-slate-400">待开始</span>
-                    <span className="text-white font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'pending').length, 0)}</span>
+                    <span className="text-slate-900 font-medium">{state.phases.reduce((a, p) => a + p.nodes.filter(n => n.status === 'pending').length, 0)}</span>
                   </div>
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-400">
                   总计 {total} 个任务节点 · 距上市倒计时 {getCountdown(state.launchDate)} 天 · 目标上市日期：{state.launchDate}
                 </div>
               </div>

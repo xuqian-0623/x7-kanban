@@ -624,16 +624,29 @@
             if (phase.id === targetPhase.id) {
               return { ...phase, nodes: [...phase.nodes, newReworkNode] };
             }
-            // Freeze the source node
+            // Source node：仅未完成节点置为 frozen；已完成节点保留 completed 历史
             if (phase.id === srcNode.phaseId) {
               return {
                 ...phase,
                 nodes: phase.nodes.map(n => {
                   if (n.id === action.sourceNodeId) {
-                    return { ...n, status: 'frozen', reworkV2Id: v2Id };
+                    const isCompleted = n.status === 'completed';
+                    return { ...n, status: isCompleted ? 'completed' : 'frozen', reworkV2Id: v2Id };
                   }
                   return n;
                 })
+              };
+            }
+            // 下游所有依赖源节点的任务一并冻结（无论源节点当前状态如何）
+            const downstreamIds = getDownstreamNodes(action.sourceNodeId, [phase]);
+            if (downstreamIds.length > 0) {
+              return {
+                ...phase,
+                nodes: phase.nodes.map(n =>
+                  downstreamIds.includes(n.id) && n.status !== 'completed'
+                    ? { ...n, status: 'frozen' }
+                    : n
+                )
               };
             }
             return phase;
@@ -1333,12 +1346,13 @@
                       ⛔ 标记为延期（异常上报）
                     </button>
                   )}
-                  {(node.status === 'pending' || node.status === 'ongoing') && (
+                  {/* 发起返修变更：completed/pending/ongoing/delayed 都可以触发（frozen 跳过） */}
+                  {(node.status === 'completed' || node.status === 'pending' || node.status === 'ongoing' || node.status === 'delayed') && (
                     <button
                       onClick={() => { onRework(node.id); onClose(); }}
                       className="w-full px-4 py-2.5 bg-orange-100 hover:bg-orange-200 border border-orange-300 text-orange-600 rounded-lg text-sm font-medium transition-all"
                     >
-                      🔧 发起返修变更（创建上游 V2 任务并冻结当前）
+                      🔧 {node.status === 'completed' ? '返工已完成节点' : '发起返修变更'}（创建上游 V2 任务并冻结下游）
                     </button>
                   )}
                   {/* Show solution hint for delayed nodes */}

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'x7-kanban.db');
+const API_KEY = process.env.X7_API_KEY || 'x7-kanban-secret-2026';
 
 const app = express();
 app.use(cors());
@@ -92,6 +93,13 @@ function broadcastAll(payload) {
 // ============================================================
 // API 路由
 // ============================================================
+
+// AI 插件鉴权中间件
+const requireApiKey = (req, res, next) => {
+  const provided = req.headers['x-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '') || req.query.apikey;
+  if (provided !== API_KEY) return res.status(401).json({ error: 'invalid api key' });
+  next();
+};
 
 // 健康检查
 app.get('/api/health', (req, res) => {
@@ -279,7 +287,7 @@ const getProjectByChat = (chatId) => chatProjectMap.get(chatId) || null;
 const bindProject = (chatId, projectName) => { chatProjectMap.set(chatId, projectName); return true; };
 
 // 列出 AI 可调用的函数（OpenAPI 风格，AI 智能机器人「API/MCP 插件」导入）
-app.get('/api/ai/tools', (req, res) => {
+app.get('/api/ai/tools', requireApiKey, (req, res) => {
   res.json({
     tools: [
       {
@@ -360,7 +368,7 @@ app.get('/api/ai/tools', (req, res) => {
 });
 
 // 工具执行入口（AI 智能机器人配置时会指向这里）
-app.post('/api/ai/execute', async (req, res) => {
+app.post('/api/ai/execute', requireApiKey, async (req, res) => {
   const { tool, arguments: args, chat_id } = req.body;
   if (!tool) return res.status(400).json({ error: 'missing tool name' });
   insertActionLog.run(getProjectByChat(chat_id) || 'unknown', 'ai_tool_call', JSON.stringify({ tool, args }), 'ai-bot');

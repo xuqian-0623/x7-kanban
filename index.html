@@ -2063,23 +2063,11 @@
           setPreviewImage(f.dataUrl);
           return;
         }
-        // 用 Blob URL + embed 标签内嵌渲染，避开浏览器"下载"对话框
+        // dataUrl → Blob URL → 新 tab 打开。PDF 浏览器原生内嵌，其他类型浏览器自行处理
         try {
           const blob = await (await fetch(f.dataUrl)).blob();
           const blobUrl = URL.createObjectURL(blob);
-          const ext = (f.name.split('.').pop() || '').toLowerCase();
-          const isPdf = f.type === 'application/pdf' || ext === 'pdf';
-          const isOffice = ['xlsx','xls','docx','doc','pptx','ppt','csv'].includes(ext);
-          if (isOffice) {
-            // Office 文件浏览器无法内嵌 → 直接打开新 tab 让浏览器选择
-            window.open(blobUrl, '_blank', 'noopener');
-            return;
-          }
-          // PDF / 其他：用 <embed> 在新窗口内嵌渲染
-          const win = window.open('', '_blank', 'noopener');
-          if (!win) { window.open(blobUrl, '_blank'); return; }
-          win.document.write(`<!DOCTYPE html><html><head><title>${f.name}</title><style>html,body{margin:0;height:100%;background:#525659}embed{width:100vw;height:100vh;display:block}</style></head><body><embed src="${blobUrl}" type="${f.type}" /></body></html>`);
-          win.document.close();
+          window.open(blobUrl, '_blank', 'noopener');
         } catch (err) {
           alert('打开失败：' + err.message);
         }

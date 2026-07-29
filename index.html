@@ -252,6 +252,24 @@
     };
 
     const initState = () => {
+      // 尝试从 localStorage 恢复
+      try {
+        const cached = localStorage.getItem('x7-kanban-state');
+        if (cached) {
+          const parsed = JSON.parse(cached, (key, val) => {
+            // 恢复 Date 对象：识别 ISO 日期字符串
+            const dateKeys = ['planStart', 'planEnd', 'actualEnd', 'expectedRecovery', 'passedAt'];
+            if (dateKeys.includes(key) && typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
+              return new Date(val);
+            }
+            return val;
+          });
+          if (parsed && parsed.phases && parsed.phases.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) { /* ignore */ }
+
       const phases = autoTransition(initialPhases());
       const launchDate = calcLaunchDate(phases);
       const phaseGates = {};
@@ -1840,6 +1858,14 @@
         const interval = setInterval(() => dispatch({ type: actionTypes.TICK }), 60000);
         return () => clearInterval(interval);
       }, []);
+
+      // Auto-save state to localStorage on every change
+      useEffect(() => {
+        try {
+          const json = JSON.stringify(state);
+          localStorage.setItem('x7-kanban-state', json);
+        } catch (e) { /* localStorage full or private mode */ }
+      }, [state]);
 
       // Auto transition on mount (with delay for visual effect)
       useEffect(() => {

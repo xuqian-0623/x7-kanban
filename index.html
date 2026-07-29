@@ -1333,12 +1333,13 @@
                       ⛔ 标记为延期（异常上报）
                     </button>
                   )}
-                  {node.status === 'pending' && (
+                  {(node.status === 'pending' || node.status === 'ongoing') && (
                     <button
                       onClick={() => { onRework(node.id); onClose(); }}
-                      className="w-full px-4 py-2.5 bg-orange-100 hover:bg-orange-100 border border-orange-300 text-orange-600 rounded-lg text-sm font-medium transition-all"
+                      className="w-full px-4 py-2.5 bg-orange-100 hover:bg-orange-200 border border-orange-300 text-orange-600 rounded-lg text-sm font-medium transition-all"
                     >
-                      🔧 发起返修变更
+                      🔧 发起返修变更（创建上游 V2 任务并冻结当前）
+                    </button>
                     </button>
                   )}
                   {/* Show solution hint for delayed nodes */}

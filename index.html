@@ -280,6 +280,7 @@
       ADD_PROJECT: 'ADD_PROJECT',
       SWITCH_PROJECT: 'SWITCH_PROJECT',
       UPDATE_NODE_NOTES: 'UPDATE_NODE_NOTES',
+      UPDATE_NODE_STATUS: 'UPDATE_NODE_STATUS',
       UPDATE_PRODUCT_IMAGE: 'UPDATE_PRODUCT_IMAGE',
       UPDATE_PRODUCT_IMAGES: 'UPDATE_PRODUCT_IMAGES',
       UPDATE_PRODUCT_FILES: 'UPDATE_PRODUCT_FILES',
@@ -627,6 +628,22 @@
           return { ...state, phases, savedProjects: newSaved };
         }
 
+        case actionTypes.UPDATE_NODE_STATUS: {
+          const { nodeId, status, extra } = action;
+          const updateNodes = (nodes) => nodes.map(n => {
+            if (n.id !== nodeId) return n;
+            const updated = { ...n, status };
+            if (extra) Object.assign(updated, extra);
+            return updated;
+          });
+          phases = state.phases.map(phase => ({ ...phase, nodes: updateNodes(phase.nodes) }));
+          const newSaved = (state.savedProjects || []).map(p => ({
+            ...p,
+            phases: p.phases.map(phase => ({ ...phase, nodes: updateNodes(phase.nodes) })),
+          }));
+          return { ...state, phases, savedProjects: newSaved };
+        }
+
         case actionTypes.UPDATE_PRODUCT_IMAGE: {
           // Legacy single image — append to array (仅当前项目，不动存档)
           const images = [...(state.productImages || (state.productImage ? [state.productImage] : [])), action.productImage];
@@ -917,7 +934,7 @@
     };
 
     // --- Task Detail Drawer ---
-    const TaskDetailDrawer = ({ node, phaseName, onClose, onMarkDelay, onMarkCompleted, onRework, onUpdateNotes }) => {
+    const TaskDetailDrawer = ({ node, phaseName, onClose, onMarkDelay, onMarkCompleted, onRework, onUpdateNotes, onUpdateStatus }) => {
       if (!node) return null;
       const history = node.notesHistory || [];
       const [notes, setNotes] = useState(history.length > 0 ? history[history.length - 1].text : '');
@@ -1041,6 +1058,24 @@
 
                 {/* Action buttons */}
                 <div className="pt-4 border-t border-slate-200 space-y-2">
+                  {/* Status transition buttons */}
+                  {node.status === 'pending' && (
+                    <button
+                      onClick={() => onUpdateStatus(node.id, 'ongoing')}
+                      className="w-full px-4 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-300 text-blue-600 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5"
+                    >
+                      ▶ 开始处理（待开始 → 进行中）
+                    </button>
+                  )}
+                  {node.status === 'ongoing' && (
+                    <button
+                      onClick={() => onUpdateStatus(node.id, 'pending')}
+                      className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5"
+                    >
+                      ⏸ 重置为待开始（进行中 → 待开始）
+                    </button>
+                  )}
+
                   {/* Mark as completed — available for unresolved nodes */}
                   {(node.status === 'delayed' || node.status === 'frozen' || node.status === 'ongoing') && (
                     <button
@@ -2482,6 +2517,7 @@
               onMarkCompleted={handleMarkCompleted}
               onRework={handleRework}
               onUpdateNotes={(nodeId, notes) => dispatch({ type: actionTypes.UPDATE_NODE_NOTES, nodeId, notes })}
+              onUpdateStatus={(nodeId, status) => dispatch({ type: actionTypes.UPDATE_NODE_STATUS, nodeId, status })}
             />
           )}
 

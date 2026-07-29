@@ -85,65 +85,72 @@
     const dateStr = (d) => d.toISOString().split('T')[0];
 
     const d = (m, day) => { return new Date(2026, m-1, day); };
-    const initialPhases = () => [
-      {
-        id: 'design', name: '产品设计',
-        color: '#3b82f6',
-        nodes: [
-          { id: 'd1', name: '内部策划',     status: 'completed', planStart: d(6,1),  planEnd: d(6,5),  actualEnd: d(6,4),  dependsOn: [] },
-          { id: 'd2', name: '任务开发',     status: 'completed', planStart: d(6,3),  planEnd: d(6,10), actualEnd: d(6,9),  dependsOn: ['d1'] },
-          { id: 'd3', name: '内部开模',     status: 'completed', planStart: d(6,8),  planEnd: d(6,15), actualEnd: d(6,14), dependsOn: ['d2'] },
-          { id: 'd4', name: '任务评估',     status: 'completed', planStart: d(6,12), planEnd: d(6,18), actualEnd: d(6,17), dependsOn: ['d3'] },
-          { id: 'd5', name: '任务拆分',     status: 'completed', planStart: d(6,16), planEnd: d(6,22), actualEnd: d(6,21), dependsOn: ['d4'] },
-          { id: 'd6', name: '内部验收',     status: 'completed', planStart: d(6,20), planEnd: d(6,25), actualEnd: d(6,24), dependsOn: ['d5'] },
-        ]
-      },
-      {
-        id: 'mold', name: '模具阶段',
-        color: '#f59e0b',
-        nodes: [
-          { id: 'm1', name: '开模',         status: 'completed', planStart: d(6,10), planEnd: d(6,20), actualEnd: d(6,19),   dependsOn: ['d6'] },
-          { id: 'm2', name: '模后处理',     status: 'completed', planStart: d(6,18), planEnd: d(6,25), actualEnd: d(6,24),   dependsOn: ['m1'] },
-          { id: 'm3', name: 'T1试模',       status: 'completed', planStart: d(6,22), planEnd: d(6,28), actualEnd: d(6,27),   dependsOn: ['m2'] },
-          { id: 'm4', name: 'T2试模',       status: 'delayed',   planStart: d(6,25), planEnd: d(7,5),                       dependsOn: ['m3'],
-            delay: { reason: '分模线问题', expectedRecovery: d(7,28), impactDays: 3 } },
-          { id: 'm5', name: 'T3试模',       status: 'pending',   planStart: d(7,8),  planEnd: d(7,15),                      dependsOn: ['m4'] },
-          { id: 'm6', name: '验收签字',     status: 'pending',   planStart: d(7,12), planEnd: d(7,20),                      dependsOn: ['m5'] },
-        ]
-      },
-      {
-        id: 'ebo', name: 'EBO阶段',
-        color: '#06b6d4',
-        nodes: [
-          { id: 'e1', name: '开模模具',     status: 'completed', planStart: d(6,20), planEnd: d(6,28), actualEnd: d(6,27), dependsOn: ['m4'] },
-          { id: 'e2', name: '手板制作',     status: 'ongoing',   planStart: d(6,25), planEnd: d(7,5),                      dependsOn: ['e1'] },
-          { id: 'e3', name: '内部手板',     status: 'pending',   planStart: d(7,1),  planEnd: d(7,8),                       dependsOn: ['e2'] },
-          { id: 'e4', name: '包装手板',     status: 'ongoing',   planStart: d(6,25), planEnd: d(7,3),                      dependsOn: [] },
-          { id: 'e5', name: '试模',         status: 'pending',   planStart: d(7,5),  planEnd: d(7,12),                      dependsOn: ['e3', 'e4'] },
-          { id: 'e6', name: '试产',         status: 'pending',   planStart: d(7,10), planEnd: d(7,18),                      dependsOn: ['e5'] },
-        ]
-      },
-      {
-        id: 'eb1', name: 'EB1阶段',
-        color: '#10b981',
-        nodes: [
-          { id: 'b1', name: '开模模具',     status: 'pending',   planStart: d(7,15), planEnd: d(7,22), dependsOn: ['e6'] },
-          { id: 'b2', name: '手板',         status: 'pending',   planStart: d(7,18), planEnd: d(7,25), dependsOn: ['b1'] },
-          { id: 'b3', name: '试装',         status: 'pending',   planStart: d(7,20), planEnd: d(7,28), dependsOn: ['b2'] },
-          { id: 'b4', name: '试产',         status: 'pending',   planStart: d(7,22), planEnd: d(7,30), dependsOn: ['b3'] },
-          { id: 'b5', name: '试产评审',     status: 'pending',   planStart: d(7,25), planEnd: d(8,2),  dependsOn: ['b4'] },
-        ]
-      },
-      {
-        id: 'batch', name: '中小批',
-        color: '#f472b6',
-        nodes: [
-          { id: 's1', name: '试装',         status: 'pending',   planStart: d(8,1),  planEnd: d(8,8),  dependsOn: ['b5'] },
-          { id: 's2', name: '试产',         status: 'pending',   planStart: d(8,5),  planEnd: d(8,12), dependsOn: ['s1'] },
-          { id: 's3', name: '首批出货',     status: 'pending',   planStart: d(8,10), planEnd: d(8,18), dependsOn: ['s2'] },
-        ]
-      }
-    ];
+    const BASE_DATE = new Date(2026, 5, 1); // 2026-06-01 模板基准日
+    const dayDiff = (date) => Math.round((date - BASE_DATE) / 86400000);
+    const shiftDate = (date, newBase) => newBase ? addDays(newBase, dayDiff(date)) : date;
+
+    const initialPhases = (startDate) => {
+      const base = startDate ? new Date(startDate) : null;
+      const s = (date) => shiftDate(date, base);
+      return [
+        {
+          id: 'design', name: '产品设计',
+          color: '#3b82f6',
+          nodes: [
+            { id: 'd1', name: '内部策划',     status: 'completed', planStart: s(d(6,1)),  planEnd: s(d(6,5)),  actualEnd: s(d(6,4)),  dependsOn: [] },
+            { id: 'd2', name: '任务开发',     status: 'completed', planStart: s(d(6,3)),  planEnd: s(d(6,10)), actualEnd: s(d(6,9)),  dependsOn: ['d1'] },
+            { id: 'd3', name: '内部开模',     status: 'completed', planStart: s(d(6,8)),  planEnd: s(d(6,15)), actualEnd: s(d(6,14)), dependsOn: ['d2'] },
+            { id: 'd4', name: '任务评估',     status: 'completed', planStart: s(d(6,12)), planEnd: s(d(6,18)), actualEnd: s(d(6,17)), dependsOn: ['d3'] },
+            { id: 'd5', name: '任务拆分',     status: 'completed', planStart: s(d(6,16)), planEnd: s(d(6,22)), actualEnd: s(d(6,21)), dependsOn: ['d4'] },
+            { id: 'd6', name: '内部验收',     status: 'completed', planStart: s(d(6,20)), planEnd: s(d(6,25)), actualEnd: s(d(6,24)), dependsOn: ['d5'] },
+          ]
+        },
+        {
+          id: 'mold', name: '模具阶段',
+          color: '#f59e0b',
+          nodes: [
+            { id: 'm1', name: '开模',         status: 'completed', planStart: s(d(6,10)), planEnd: s(d(6,20)), actualEnd: s(d(6,19)),   dependsOn: ['d6'] },
+            { id: 'm2', name: '模后处理',     status: 'completed', planStart: s(d(6,18)), planEnd: s(d(6,25)), actualEnd: s(d(6,24)),   dependsOn: ['m1'] },
+            { id: 'm3', name: 'T1试模',       status: 'completed', planStart: s(d(6,22)), planEnd: s(d(6,28)), actualEnd: s(d(6,27)),   dependsOn: ['m2'] },
+            { id: 'm4', name: 'T2试模',       status: 'pending',   planStart: s(d(6,25)), planEnd: s(d(7,5)),                       dependsOn: ['m3'] },
+            { id: 'm5', name: 'T3试模',       status: 'pending',   planStart: s(d(7,8)),  planEnd: s(d(7,15)),                      dependsOn: ['m4'] },
+            { id: 'm6', name: '验收签字',     status: 'pending',   planStart: s(d(7,12)), planEnd: s(d(7,20)),                      dependsOn: ['m5'] },
+          ]
+        },
+        {
+          id: 'ebo', name: 'EBO阶段',
+          color: '#06b6d4',
+          nodes: [
+            { id: 'e1', name: '开模模具',     status: 'completed', planStart: s(d(6,20)), planEnd: s(d(6,28)), actualEnd: s(d(6,27)), dependsOn: ['m4'] },
+            { id: 'e2', name: '手板制作',     status: 'pending',   planStart: s(d(6,25)), planEnd: s(d(7,5)),                      dependsOn: ['e1'] },
+            { id: 'e3', name: '内部手板',     status: 'pending',   planStart: s(d(7,1)),  planEnd: s(d(7,8)),                       dependsOn: ['e2'] },
+            { id: 'e4', name: '包装手板',     status: 'pending',   planStart: s(d(6,25)), planEnd: s(d(7,3)),                      dependsOn: [] },
+            { id: 'e5', name: '试模',         status: 'pending',   planStart: s(d(7,5)),  planEnd: s(d(7,12)),                      dependsOn: ['e3', 'e4'] },
+            { id: 'e6', name: '试产',         status: 'pending',   planStart: s(d(7,10)), planEnd: s(d(7,18)),                      dependsOn: ['e5'] },
+          ]
+        },
+        {
+          id: 'eb1', name: 'EB1阶段',
+          color: '#10b981',
+          nodes: [
+            { id: 'b1', name: '开模模具',     status: 'pending',   planStart: s(d(7,15)), planEnd: s(d(7,22)), dependsOn: ['e6'] },
+            { id: 'b2', name: '手板',         status: 'pending',   planStart: s(d(7,18)), planEnd: s(d(7,25)), dependsOn: ['b1'] },
+            { id: 'b3', name: '试装',         status: 'pending',   planStart: s(d(7,20)), planEnd: s(d(7,28)), dependsOn: ['b2'] },
+            { id: 'b4', name: '试产',         status: 'pending',   planStart: s(d(7,22)), planEnd: s(d(7,30)), dependsOn: ['b3'] },
+            { id: 'b5', name: '试产评审',     status: 'pending',   planStart: s(d(7,25)), planEnd: s(d(8,2)),  dependsOn: ['b4'] },
+          ]
+        },
+        {
+          id: 'batch', name: '中小批',
+          color: '#f472b6',
+          nodes: [
+            { id: 's1', name: '试装',         status: 'pending',   planStart: s(d(8,1)),  planEnd: s(d(8,8)),  dependsOn: ['b5'] },
+            { id: 's2', name: '试产',         status: 'pending',   planStart: s(d(8,5)),  planEnd: s(d(8,12)), dependsOn: ['s1'] },
+            { id: 's3', name: '首批出货',     status: 'pending',   planStart: s(d(8,10)), planEnd: s(d(8,18)), dependsOn: ['s2'] },
+          ]
+        }
+      ];
+    };
 
     // Auto-transition: pending → ongoing if planStart <= today
     const autoTransition = (phases) => {
@@ -494,14 +501,8 @@
         case actionTypes.ADD_PROJECT: {
           const { projectName, owner, startDate: sDate } = action;
           const start = new Date(sDate);
-          const phases = [
-            { id: 'design', name: '产品设计', color: '#3b82f6', nodes: [] },
-            { id: 'mold', name: '模具阶段', color: '#f59e0b', nodes: [] },
-            { id: 'ebo', name: 'EBO 阶段', color: '#10b981', nodes: [] },
-            { id: 'eb1', name: 'EB1 阶段', color: '#3b82f6', nodes: [] },
-            { id: 'batch', name: '中小批阶段', color: '#f97316', nodes: [] },
-          ];
-          const launchDate = dateStr(addDays(start, 90));
+          const phases = initialPhases(sDate);
+          const launchDate = calcLaunchDate(phases);
           const newGates = {};
           phases.forEach(p => { newGates[p.id] = { status: 'pending' }; });
           const log = createLog('system', '系统', `「${projectName}」项目已创建`,

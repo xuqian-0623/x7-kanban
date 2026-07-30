@@ -1,6 +1,12 @@
 {
-  "name": "x7-kanban-vercel",
+  "name": "x7-kanban-local-backend",
   "version": "1.0.0",
-  "type": "module",
-  "dependencies": {}
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  }
 }

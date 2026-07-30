@@ -205,27 +205,15 @@
       });
     };
 
-    // 企业微信机器人推送 —— 走 Render 代理（浏览器无法直连企微 webhook）
-    const doPushRaw = async (webhook, payload) => {
-      if (!webhook) return false;
+    // 企业微信机器人推送 —— 直连优先（秒推），代理作兜底
+    const doPush = (webhook, payload) => {
+      if (!webhook) return;
       const body = JSON.stringify(payload);
-      try {
-        const url = new URL(webhook);
-        const proxyUrl = `https://videostudio-api.onrender.com/api/proxy${url.pathname}${url.search}`;
-        const res = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Target-Base-URL': url.origin },
-          body,
-        });
-        if (res.ok) { console.log('[WeCom] 代理 OK'); return true; }
-      } catch (e) { console.warn('[WeCom] 代理不可用', e); }
-      try {
-        await fetch(webhook, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body });
-        return true;
-      } catch (err) { console.warn('[WeCom] 推送失败:', err); return false; }
+      // 直连（no-cors，瞬间推送）
+      fetch(webhook, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body }).catch(() => {});
     };
-    const pushMarkdown = (state, md) => doPushRaw(state.wecomWebhook, { msgtype: 'markdown', markdown: { content: md } });
-    const pushTemplate = (state, card) => doPushRaw(state.wecomWebhook, { msgtype: 'template_card', template_card: card });
+    const pushMarkdown = (state, md) => doPush(state.wecomWebhook, { msgtype: 'markdown', markdown: { content: md } });
+    const pushTemplate = (state, card) => doPush(state.wecomWebhook, { msgtype: 'template_card', template_card: card });
 
     const fmtF = (d) => d ? `${d.getMonth()+1}月${d.getDate()}日` : '?';
     const countByStatus = (phases, status) => phases.reduce((a, p) => a + p.nodes.filter(n => n.status === status).length, 0);

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -466,6 +466,7 @@
       UPDATE_PRODUCT_IMAGES: 'UPDATE_PRODUCT_IMAGES',
       UPDATE_PRODUCT_FILES: 'UPDATE_PRODUCT_FILES',
       UPDATE_WECOM_WEBHOOK: 'UPDATE_WECOM_WEBHOOK',
+      UPDATE_PROJECT_PROFILE: 'UPDATE_PROJECT_PROFILE',
     };
 
     const initState = () => {
@@ -489,6 +490,7 @@
             }
             if (!parsed.productImages) parsed.productImages = [];
             if (!parsed.productFiles) parsed.productFiles = [];
+            if (!parsed.projectProfile) parsed.projectProfile = { image: null, params: '', sellingPoints: '' };
             return parsed;
           }
         }
@@ -513,6 +515,7 @@
         productFiles: [],
         wecomWebhook: '',
         reworkRecords: [],
+        projectProfile: { image: null, params: '', sellingPoints: '' },
         savedProjects: [],
         activityLog: [{
           id: 'log-init',
@@ -571,7 +574,7 @@
         }
 
         case actionTypes.MARK_DELAYED: {
-          phases = state.phases.map(phase => ({
+          // 延期原因是业务必填项，防止绕过弹窗直接修改状态。\r\n          if (!String(action.reason || '').trim()) return state;\r\n          phases = state.phases.map(phase => ({
             ...phase,
             nodes: phase.nodes.map(n => {
               if (n.id === action.nodeId) {
@@ -629,7 +632,7 @@
         }
 
         case actionTypes.CREATE_REWORK: {
-          const srcNode = getNodeById(state.phases, action.sourceNodeId);
+          // 返修原因是业务必填项，企微链接和其他入口也不能绕过。\r\n          if (!String(action.reason || '').trim()) return state;\r\n          const srcNode = getNodeById(state.phases, action.sourceNodeId);
           const targetPhase = getPhaseById(state.phases, action.targetPhaseId);
           if (!srcNode || !targetPhase) return state;
 
@@ -763,6 +766,7 @@
             phaseGates: state.phaseGates, projectName: state.projectName, projectOwner: state.projectOwner,
             projectStartDate: state.projectStartDate, activityLog: state.activityLog, notifications: state.notifications,
             productImages: state.productImages || [], productFiles: state.productFiles || [],
+            projectProfile: state.projectProfile,
           };
           const saved = [...(state.savedProjects || []).filter(p => p.projectName !== currentSnap.projectName), currentSnap];
           return {
@@ -771,6 +775,7 @@
             projectName, projectOwner: owner, projectStartDate: sDate,
             activityLog: [...state.activityLog, log], notifications: [],
             productImages: [], productFiles: [],
+            projectProfile: { image: null, params: '', sellingPoints: '' },
             savedProjects: saved,
           };
         }
@@ -789,6 +794,7 @@
             phaseGates: state.phaseGates, projectName: state.projectName, projectOwner: state.projectOwner,
             projectStartDate: state.projectStartDate, activityLog: state.activityLog, notifications: state.notifications,
             productImages: state.productImages || [], productFiles: state.productFiles || [],
+            projectProfile: state.projectProfile,
           };
           const saved = [...state.savedProjects.filter(p => p.projectName !== target.projectName && p.projectName !== currentSnap.projectName), currentSnap];
           return {
@@ -796,6 +802,7 @@
             ...target,
             productImages: target.productImages || [],
             productFiles: target.productFiles || [],
+            projectProfile: target.projectProfile || { image: null, params: '', sellingPoints: '' },
             savedProjects: saved,
             tick: state.tick + 1,
           };
@@ -875,6 +882,10 @@
 
         case actionTypes.UPDATE_WECOM_WEBHOOK: {
           return { ...state, wecomWebhook: action.webhook };
+        }
+
+        case actionTypes.UPDATE_PROJECT_PROFILE: {
+          return { ...state, projectProfile: { ...state.projectProfile, ...action.payload } };
         }
 
         default:
@@ -1298,6 +1309,173 @@
         </div>
       </div>
     );
+    };
+
+    // --- Project Profile Section (项目简介：效果图 + 基础参数 + 核心卖点) ---
+    const ProjectProfile = ({ profile, dispatch }) => {
+      const [editing, setEditing] = useState(false);
+      const [image, setImage] = useState(profile?.image || null);
+      const [params, setParams] = useState(profile?.params || '');
+      const [sellingPoints, setSellingPoints] = useState(profile?.sellingPoints || '');
+      const imageInputRef = useRef(null);
+
+      // Sync when profile changes from outside
+      useEffect(() => {
+        setImage(profile?.image || null);
+        setParams(profile?.params || '');
+        setSellingPoints(profile?.sellingPoints || '');
+      }, [profile?.image, profile?.params, profile?.sellingPoints]);
+
+      const handleSave = () => {
+        dispatch({ type: actionTypes.UPDATE_PROJECT_PROFILE, payload: { image, params, sellingPoints } });
+        setEditing(false);
+      };
+
+      const handleCancel = () => {
+        setImage(profile?.image || null);
+        setParams(profile?.params || '');
+        setSellingPoints(profile?.sellingPoints || '');
+        setEditing(false);
+      };
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        compressImage(file).then(compressed => {
+          const reader = new FileReader();
+          reader.onload = () => { setImage(reader.result); };
+          reader.readAsDataURL(compressed);
+        });
+      };
+
+      const hasContent = image || (params || '').trim() || (sellingPoints || '').trim();
+
+      return (
+        <div className="rounded-xl p-5 mb-5 glass-card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
+              项目简介
+            </h3>
+            <div className="flex gap-2">
+              {editing ? (
+                <>
+                  <button
+                    onClick={handleCancel}
+                    className="px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 hover:bg-slate-200 transition-all text-xs font-medium"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all text-xs font-medium"
+                  >
+                    保存
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 hover:bg-slate-200 transition-all text-xs font-medium"
+                >
+                  {hasContent ? '编辑' : '填写简介'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {!editing && !hasContent ? (
+            <div className="text-center py-6 text-slate-400 text-sm">
+              点击「填写简介」添加产品效果图、基础参数和核心卖点
+            </div>
+          ) : (
+            <div className={`grid ${editing ? 'grid-cols-1 gap-4' : 'grid-cols-[280px_1fr_1fr] gap-5'}`}>
+              {/* 产品效果图 */}
+              <div className={`rounded-lg ${editing ? 'flex items-start gap-4' : ''}`}>
+                <div className="text-xs font-semibold text-slate-500 mb-2">产品效果图</div>
+                {image ? (
+                  <div className={`relative ${editing ? 'flex-shrink-0' : ''}`}>
+                    <img
+                      src={image}
+                      alt="产品效果图"
+                      className={`rounded-lg border border-slate-200 object-cover ${editing ? 'w-40 h-40' : 'w-full h-48'}`}
+                    />
+                    {editing && (
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => imageInputRef.current?.click()}
+                          className="px-2 py-1 rounded bg-blue-50 text-blue-600 text-xs hover:bg-blue-100"
+                        >
+                          更换图片
+                        </button>
+                        <button
+                          onClick={() => setImage(null)}
+                          className="px-2 py-1 rounded bg-red-50 text-red-600 text-xs hover:bg-red-100"
+                        >
+                          移除
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => imageInputRef.current?.click()}
+                    className={`rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all ${editing ? 'w-40 h-40 flex-shrink-0' : 'h-48'}`}
+                  >
+                    <div className="text-center">
+                      <svg className="mx-auto mb-1" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      <span className="text-xs text-slate-400">上传效果图</span>
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </div>
+
+              {/* 基础参数 */}
+              <div>
+                <div className="text-xs font-semibold text-slate-500 mb-2">基础参数</div>
+                {editing ? (
+                  <textarea
+                    value={params}
+                    onChange={e => setParams(e.target.value)}
+                    placeholder={'例如：\n产品型号：X7\n额定功率：1400W\n容量：5.5L\n控温范围：80-200℃\n内胆材质：不锈钢\n产品尺寸：320×280×340mm\n净重：5.2kg'}
+                    rows={8}
+                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 text-slate-700 placeholder-slate-400 resize-none"
+                  />
+                ) : (
+                  <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed min-h-[48px]">
+                    {params || <span className="text-slate-400 italic">待填写</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* 核心卖点 */}
+              <div>
+                <div className="text-xs font-semibold text-slate-500 mb-2">核心卖点</div>
+                {editing ? (
+                  <textarea
+                    value={sellingPoints}
+                    onChange={e => setSellingPoints(e.target.value)}
+                    placeholder={'例如：\n① 360度立体加热，无需翻面\n② 智能温控芯片，精准到 ±1℃\n③ 低油脂烹饪，健康饮食首选\n④ 24h 预约功能，早餐提前备好\n⑤ OLED 触控屏，操作简单直观'}
+                    rows={8}
+                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 text-slate-700 placeholder-slate-400 resize-none"
+                  />
+                ) : (
+                  <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed min-h-[48px]">
+                    {sellingPoints || <span className="text-slate-400 italic">待填写</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
     };
 
     // --- Task Detail Drawer ---
@@ -2944,19 +3122,19 @@
 
         if (act === 'daily') { pushProgressReport(state); }
         else if (act === 'delay' && nid) {
-          if (recovery) {
+          if (recovery && reason.trim()) {
             dispatch({ type: actionTypes.MARK_DELAYED, nodeId: nid, reason, expectedRecovery: new Date(recovery), impactDays: impact });
             pushDelayAlert(state, nid, reason, new Date(recovery), impact);
           } else {
             setDelayModalNodeId({ id: nid, isFromCard: true, reason, recovery });
           }
         }
-        else if (act === 'rework' && nid && tpid) {
+        else if (act === 'rework' && nid && tpid && reason.trim()) {
           dispatch({ type: actionTypes.CREATE_REWORK, sourceNodeId: nid, targetPhaseId: tpid, reason });
           const d = getDownstreamNodes(nid, state.phases);
           pushReworkNotice(state, nid, tpid, `${nid}-V2`, d.slice(0,5), reason);
         }
-        else if (act === 'complete' && nid) {
+        else if (act === 'rework' && nid) {\r\n          setReworkSourceNodeId(nid);\r\n        }\r\n        else if (act === 'complete' && nid) {
           dispatch({ type: actionTypes.MARK_COMPLETED, nodeId: nid });
           pushSimpleEvent(state, `✅ 节点已完成（通过群卡片操作）`);
         }
@@ -3007,7 +3185,7 @@
       }, [state]);
 
       const handleDelaySubmit = useCallback((nodeId, reason, recoveryDate, impactDays) => {
-        const n = getNodeById(state.phases, nodeId);
+        if (!String(reason || '').trim()) { alert('请填写延期原因'); return; }\r\n        const n = getNodeById(state.phases, nodeId);
         const isUpdate = delayModalNodeId && typeof delayModalNodeId === 'object' && delayModalNodeId.isUpdate;
         if (isUpdate) {
           // 更新延期预估：保留旧值到 delayHistory，写入新的 delay
@@ -3033,7 +3211,7 @@
       }, []);
 
       const handleReworkSubmit = useCallback((sourceNodeId, targetPhaseId, reason) => {
-        const s = getNodeById(state.phases, sourceNodeId);
+        if (!String(reason || '').trim()) { alert('请填写返修原因'); return; }\r\n        const s = getNodeById(state.phases, sourceNodeId);
         const t = state.phases.find(p => p.id === targetPhaseId);
         dispatch({ type: actionTypes.CREATE_REWORK, sourceNodeId, targetPhaseId, reason });
         setReworkSourceNodeId(null);
@@ -3049,6 +3227,8 @@
           <div className="max-w-[1600px] mx-auto px-4 py-5">
             {/* Top Header */}
             <ProjectHeader state={state} dispatch={dispatch} onTerminate={() => setTerminateModalOpen(true)} onAddProject={() => setShowAddProject(true)} onSwitchProject={(name) => dispatch({ type: actionTypes.SWITCH_PROJECT, projectName: name })} onReworkHistory={() => setReworkHistoryOpen(true)} />
+            {/* Project Profile */}
+            <ProjectProfile profile={state.projectProfile} dispatch={dispatch} />
             </div>
             {/* Kanban Board */}
             <div className="flex gap-4 overflow-x-auto pb-4 kanban-scroll phase-wrapper">

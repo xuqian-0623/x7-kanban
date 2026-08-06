@@ -3250,12 +3250,6 @@
                   onMarkCompleted={handleMarkCompleted}
                 />
               ))}
-              {/* Product Image Column */}
-              <ProductImageColumn
-                images={state.productImages || []}
-                onUpload={(newImages) => dispatch({ type: actionTypes.UPDATE_PRODUCT_IMAGES, productImages: newImages })}
-                onRemove={(newImages) => dispatch({ type: actionTypes.UPDATE_PRODUCT_IMAGES, productImages: newImages })}
-              />
               {/* Product Files Column */}
               <ProductFilesColumn
                 files={state.productFiles || []}

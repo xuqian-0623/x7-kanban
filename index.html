@@ -459,6 +459,7 @@
       TICK: 'TICK',
       ADD_PROJECT: 'ADD_PROJECT',
       SWITCH_PROJECT: 'SWITCH_PROJECT',
+      DELETE_PROJECT: 'DELETE_PROJECT',
       FULL_SYNC: 'FULL_SYNC',
       UPDATE_NODE_NOTES: 'UPDATE_NODE_NOTES',
       UPDATE_NODE_STATUS: 'UPDATE_NODE_STATUS',
@@ -829,6 +830,36 @@
           };
         }
 
+        case actionTypes.DELETE_PROJECT: {
+          const targetName = action.projectName || state.projectName;
+          const savedProjects = state.savedProjects || [];
+          const remaining = savedProjects.filter(p => p.projectName !== targetName);
+
+          // 仅剩当前项目时不允许删除，避免看板进入无项目状态。
+          if (targetName === state.projectName && savedProjects.length === 0) return state;
+
+          // 删除非当前项目（为后续入口保留能力）。
+          if (targetName !== state.projectName) {
+            return { ...state, savedProjects: remaining };
+          }
+
+          // 删除当前项目后切换到第一个可用项目。
+          const next = savedProjects.find(p => p.projectName !== targetName);
+          if (!next) return state;
+          const deleteLog = createLog('system', '张伟', `删除项目「${targetName}」`, `已删除项目并自动切换到「${next.projectName}」`);
+          return {
+            ...state,
+            ...next,
+            productImages: next.productImages || [],
+            productFiles: next.productFiles || [],
+            projectProfile: next.projectProfile || { image: null, params: '', sellingPoints: '' },
+            reworkRecords: next.reworkRecords || [],
+            savedProjects: remaining.filter(p => p.projectName !== next.projectName),
+            activityLog: [...(next.activityLog || []), deleteLog],
+            tick: state.tick + 1,
+          };
+        }
+
         case actionTypes.UPDATE_NODE_NOTES: {
           const { nodeId, notes } = action;
           if (!notes.trim()) return state;
@@ -943,7 +974,7 @@
     const ChevronDown = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>;
 
     // --- Project Header ---
-    const ProjectHeader = ({ state, dispatch, onTerminate, onRestore, onAddProject, onSwitchProject, onReworkHistory }) => {
+    const ProjectHeader = ({ state, dispatch, onTerminate, onRestore, onAddProject, onSwitchProject, onDeleteProject, onReworkHistory }) => {
       const [riskOpen, setRiskOpen] = useState(false);
       const [projectMenuOpen, setProjectMenuOpen] = useState(false);
       const [wecomOpen, setWecomOpen] = useState(false);
@@ -1008,6 +1039,17 @@
                             {p.projectName === state.projectName && <span className="text-[10px] text-blue-400">当前</span>}
                           </button>
                         ))}
+                        <div className="border-t border-slate-100">
+                          <button
+                            onClick={() => { setProjectMenuOpen(false); onDeleteProject(state.projectName); }}
+                            disabled={uniqueProjects.length <= 1}
+                            className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-all ${uniqueProjects.length <= 1 ? 'text-slate-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'}`}
+                            title={uniqueProjects.length <= 1 ? '至少保留一个项目' : '删除当前项目'}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
+                            删除当前项目
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3257,7 +3299,11 @@
         <div className="min-h-screen bg-slate-50">
           <div className="max-w-[1600px] mx-auto px-4 py-5">
             {/* Top Header */}
-            <ProjectHeader state={state} dispatch={dispatch} onTerminate={() => setTerminateModalOpen(true)} onRestore={() => { dispatch({ type: actionTypes.RESTORE_PROJECT }); pushSimpleEvent(state, '🔄 项目已从终止状态恢复，节点操作已解锁'); }} onAddProject={() => setShowAddProject(true)} onSwitchProject={(name) => dispatch({ type: actionTypes.SWITCH_PROJECT, projectName: name })} onReworkHistory={() => setReworkHistoryOpen(true)} />
+            <ProjectHeader state={state} dispatch={dispatch} onTerminate={() => setTerminateModalOpen(true)} onRestore={() => { dispatch({ type: actionTypes.RESTORE_PROJECT }); pushSimpleEvent(state, '🔄 项目已从终止状态恢复，节点操作已解锁'); }} onAddProject={() => setShowAddProject(true)} onSwitchProject={(name) => dispatch({ type: actionTypes.SWITCH_PROJECT, projectName: name })} onDeleteProject={(name) => {
+              if ((state.savedProjects || []).length === 0) return alert('至少保留一个项目，当前项目无法删除');
+              if (!window.confirm(`确定删除项目「${name}」吗？删除后不可恢复。`)) return;
+              dispatch({ type: actionTypes.DELETE_PROJECT, projectName: name });
+            }} onReworkHistory={() => setReworkHistoryOpen(true)} />
             {/* Project Profile */}
             <ProjectProfile profile={state.projectProfile} dispatch={dispatch} />
             </div>

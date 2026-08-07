@@ -2501,100 +2501,6 @@
     };
 
     // --- WeCom Push Toast (模拟企业微信机器人推送) ---
-    const WecomToast = ({ logs, onDismiss }) => {
-      const recent = logs.filter(l => !['init'].includes(l.type)).slice(-5).reverse();
-      if (recent.length === 0) return null;
-      const [collapsed, setCollapsed] = useState(false);
-      const [autoHide, setAutoHide] = useState(false);
-      const [dismissed, setDismissed] = useState(false);
-
-      // 进入页面或新增日志时 3 秒后自动折叠
-      useEffect(() => {
-        setDismissed(false);
-        setAutoHide(false);
-        const t = setTimeout(() => setAutoHide(true), 5000);
-        return () => clearTimeout(t);
-      }, [logs.length]);
-
-      if (dismissed) return null;
-
-      const isCollapsed = collapsed || autoHide;
-      const latest = recent[0];
-
-      const typeStyles = {
-        client_confirm: { border: 'border-l-emerald-500', icon: '✅', tag: '客户确认' },
-        client_reject: { border: 'border-l-red-500', icon: '⛔', tag: '客户驳回' },
-        delay: { border: 'border-l-red-500', icon: '⏰', tag: '延期上报' },
-        rework: { border: 'border-l-orange-500', icon: '🔧', tag: '返修变更' },
-        batch_advance: { border: 'border-l-blue-500', icon: '▶', tag: '推进' },
-        system: { border: 'border-l-slate-500', icon: '⚙️', tag: '系统' },
-      };
-
-      const toastNode = (
-        <div
-          className="fixed top-4 right-4 z-[9999] max-w-[400px] min-w-[320px] cursor-pointer"
-          style={{ zIndex: 99999 }}
-          onClick={() => { if (isCollapsed) { setCollapsed(false); setAutoHide(false); } }}
-        >
-          <div className="rounded-xl shadow-2xl border border-slate-300 bg-white border-l-4 border-l-emerald-500 overflow-hidden">
-            {/* Head */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-slate-200">
-              <div className="w-5 h-5 rounded bg-green-100 flex items-center justify-center flex-shrink-0">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-              </div>
-              <span className="text-xs font-semibold text-green-600 flex-1">
-                企业微信 · 推送历史
-                <span className="text-slate-400 font-normal ml-1">（{recent.length}）</span>
-              </span>
-              {isCollapsed ? (
-                <button onClick={(e) => { e.stopPropagation(); setCollapsed(false); setAutoHide(false); }} className="text-xs text-slate-400 hover:text-slate-600 px-1" title="展开">▴</button>
-              ) : (
-                <button onClick={(e) => { e.stopPropagation(); setCollapsed(true); setAutoHide(true); }} className="text-xs text-slate-400 hover:text-slate-600 px-1" title="折叠">▾</button>
-              )}
-              <button onClick={(e) => { e.stopPropagation(); setDismissed(true); }} className="text-xs text-slate-400 hover:text-red-500 px-1" title="关闭">✕</button>
-            </div>
-
-            {isCollapsed ? (
-              /* 折叠态：只显示最新一条 */
-              <div className="px-3 py-2.5 flex items-center gap-2">
-                <span className="text-base">{(typeStyles[latest.type] || {}).icon || '📢'}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-slate-800 truncate">{latest.action}</div>
-                  <div className="text-[10px] text-slate-400">{latest.user} · {new Date(latest.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</div>
-                </div>
-                <span className="text-[10px] text-green-600 flex-shrink-0">📨 已推送</span>
-              </div>
-            ) : (
-              /* 展开态：显示多条历史 */
-              <div className="px-3 py-2 max-h-[420px] overflow-y-auto">
-                {recent.map((l, i) => {
-                  const s = typeStyles[l.type] || { border: 'border-l-slate-500', icon: '📢', tag: '其他' };
-                  return (
-                    <div key={l.id || i} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-100' : ''}`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm">{s.icon}</span>
-                        <span className="text-xs font-bold text-slate-800 flex-1 truncate">{l.action}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 flex-shrink-0">{s.tag}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mb-1">{l.detail}</div>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                        <span>👤 {l.user}</span>
-                        <span>🕐 {new Date(l.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
-                        <span className="text-green-600 ml-auto">📨 已推送</span>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-1.5 text-[10px] text-slate-400">
-                  <span>📨 已推送到「X7 项目协同群」</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-      return ReactDOM.createPortal(toastNode, document.body);
-    };
 
     // --- Activity Log Panel ---
     const ActivityLogPanel = ({ logs }) => {
@@ -3388,9 +3294,6 @@
             />
 
             {/* (Summary Stats 已移至 ProjectHeader 左侧) */}
-
-          {/* WeCom Push Toast (fixed top-right) */}
-          <WecomToast logs={state.activityLog} />
 
           {/* Activity Log */}
           <div className="max-w-[1600px] mx-auto px-4 pb-5">

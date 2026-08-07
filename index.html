@@ -1117,6 +1117,18 @@
                 新增项目
               </button>
 
+              {/* 恢复项目 - 终止状态下主行显眼展示 */}
+              {terminated && (
+                <button
+                  onClick={onRestore}
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-green-500 text-white hover:bg-green-600 animate-pulse-slow transition-all text-xs font-medium flex-shrink-0"
+                  title="恢复项目，解锁所有节点操作"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                  恢复项目
+                </button>
+              )}
+
               {/* Risk Panel - 仅延期时显示 */}
               {hasDelayed && (
                 <div className="relative z-40">
@@ -1246,20 +1258,6 @@
                             <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
                           </svg>
                           终止项目
-                        </button>
-                      </>
-                    )}
-
-                    {/* 恢复项目 */}
-                    {terminated && (
-                      <>
-                        <div className="border-t border-slate-100"/>
-                        <button
-                          onClick={() => { setMoreOpen(false); onRestore(); }}
-                          className="w-full text-left px-3 py-2.5 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-                          恢复项目
                         </button>
                       </>
                     )}

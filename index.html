@@ -247,8 +247,8 @@
       const { done, total } = countCompleted(phases);
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
       const countdown = getCountdown(launchDate);
-      let nodeName = nodeId, phaseName = '';
-      for (const p of phases) { const n = p.nodes.find(x => x.id === nodeId); if (n) { nodeName = n.name; phaseName = p.name; break; } }
+      let nodeName = nodeId, phaseName = '', targetNode = null;
+      for (const p of phases) { const n = p.nodes.find(x => x.id === nodeId); if (n) { nodeName = n.name; phaseName = p.name; targetNode = n; break; } }
       const boardUrl = 'https://xuqian-0623.github.io/x7-kanban/';
 
       // Markdown 主消息（去掉 <font> 标签，markdown 兼容性差）
@@ -259,6 +259,7 @@
         `**当前总体进度**：${progress}%\n` +
         `**距上市倒计时**：${countdown} 天（已变更）\n\n` +
         `⚠️ **延期节点**：${phaseName} → ${nodeName}\n` +
+        `**计划日期**：${fmtF(targetNode?.planStart)} - ${fmtF(targetNode?.planEnd)}\n` +
         `**延期原因**：${reason}\n` +
         `**预计恢复时间**：${fmtF(recoveryDate)}\n` +
         `**影响评估**：该节点位于关键路径，预计上市推迟 ${impactDays} 天\n\n` +
@@ -342,11 +343,15 @@
     };
 
     // ===== 场景四：简单完成/状态通知（轻量） =====
-    const pushSimpleEvent = (state, text) => {
+    const pushSimpleEvent = (state, text, node) => {
       if (!state.wecomWebhook) return;
+      const schedule = node?.planStart && node?.planEnd
+        ? `> 📅 计划日期：${fmtF(node.planStart)} - ${fmtF(node.planEnd)}\n`
+        : '';
       pushMarkdown(state,
         `📋 **项目：${state.projectName}**\n` +
         `> ${text}\n` +
+        schedule +
         `⏱ ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} · <font color="comment">来自智能看板</font>`
       );
     };
@@ -3227,7 +3232,7 @@
         }
         else if (act === 'complete' && nid) {
           dispatch({ type: actionTypes.MARK_COMPLETED, nodeId: nid });
-          pushSimpleEvent(state, `✅ 节点已完成（通过群卡片操作）`);
+          pushSimpleEvent(state, `✅ 节点已完成（通过群卡片操作）`, getNodeById(state.phases, nid));
         }
       }, []); // 仅页面加载时执行一次
 
@@ -3272,7 +3277,7 @@
       const handleMarkCompleted = useCallback((nodeId) => {
         const n = getNodeById(state.phases, nodeId);
         dispatch({ type: actionTypes.MARK_COMPLETED, nodeId });
-        pushSimpleEvent(state, `✅「${n?.name || nodeId}」已标记为完成`);
+        pushSimpleEvent(state, `✅「${n?.name || nodeId}」已标记为完成`, n);
       }, [state]);
 
       const handleDelaySubmit = useCallback((nodeId, reason, recoveryDate, impactDays) => {
@@ -3290,7 +3295,7 @@
             impactDays,
             fromReason: prev.reason,
           });
-          pushSimpleEvent(state, `📅「${n?.name || nodeId}」延期预估已更新\n> 新原因：${reason}\n> 预计恢复：${fmtF(recoveryDate)}\n> 新影响：${impactDays} 天`);
+          pushSimpleEvent(state, `📅「${n?.name || nodeId}」延期预估已更新\n> 新原因：${reason}\n> 预计恢复：${fmtF(recoveryDate)}\n> 新影响：${impactDays} 天`, n);
         } else {
           dispatch({ type: actionTypes.MARK_DELAYED, nodeId, reason, expectedRecovery: recoveryDate, impactDays });
           pushDelayAlert(state, nodeId, reason, recoveryDate, impactDays);
@@ -3380,7 +3385,7 @@
                 dispatch({ type: actionTypes.UPDATE_NODE_STATUS, nodeId, status, extra });
                 const n = getNodeById(state.phases, nodeId);
                 const statusLabels = { ongoing: '▶ 进行中', pending: '○ 待开始' };
-                pushSimpleEvent(state, `🔄「${n?.name || nodeId}」状态变更 → ${statusLabels[status] || status}`);
+                pushSimpleEvent(state, `🔄「${n?.name || nodeId}」状态变更 → ${statusLabels[status] || status}`, n);
               }}
             />
           )}

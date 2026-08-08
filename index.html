@@ -774,9 +774,22 @@
         }
 
         case actionTypes.ADD_PROJECT: {
-          const { projectName, owner, startDate: sDate } = action;
-          const start = new Date(sDate);
-          const phases = initialPhases(sDate);
+          const { projectName, owner, startDate: sDate, nodeDates = {} } = action;
+          // 新项目从全量待开始状态创建；计划日期可由新增项目弹窗逐节点指定。
+          const phases = initialPhases(sDate).map(phase => ({
+            ...phase,
+            nodes: phase.nodes.map(n => {
+              const dates = nodeDates[n.id] || {};
+              return {
+                ...n,
+                status: 'pending',
+                actualEnd: undefined,
+                delay: undefined,
+                planStart: dates.start ? new Date(dates.start) : n.planStart,
+                planEnd: dates.end ? new Date(dates.end) : n.planEnd,
+              };
+            }),
+          }));
           const launchDate = calcLaunchDate(phases);
           const newGates = {};
           phases.forEach(p => { newGates[p.id] = { status: 'pending' }; });
@@ -2476,58 +2489,119 @@
 
     // --- Add Project Modal ---
     const AddProjectModal = ({ onClose, onSubmit }) => {
+      const makeSchedule = (startDate) => {
+        const result = {};
+        initialPhases(startDate).forEach(phase => phase.nodes.forEach(node => {
+          result[node.id] = { start: dateStr(node.planStart), end: dateStr(node.planEnd) };
+        }));
+        return result;
+      };
       const [form, setForm] = useState({ name: '', owner: '', startDate: dateStr(new Date()) });
+      const [schedule, setSchedule] = useState(() => makeSchedule(dateStr(new Date())));
       const [error, setError] = useState('');
+
+      const updateSchedule = (nodeId, field, value) => {
+        setSchedule(prev => ({ ...prev, [nodeId]: { ...(prev[nodeId] || {}), [field]: value } }));
+        setError('');
+      };
 
       const handleSubmit = () => {
         if (!form.name.trim()) { setError('请输入项目名称'); return; }
         if (!form.owner.trim()) { setError('请输入负责人'); return; }
-        onSubmit(form);
+        const invalid = initialPhases(form.startDate).flatMap(phase => phase.nodes).find(node => {
+          const dates = schedule[node.id] || {};
+          return !dates.start || !dates.end || dates.end < dates.start;
+        });
+        if (invalid) { setError(`请检查「${invalid.name}」的计划日期，结束日期不能早于开始日期`); return; }
+        onSubmit({ ...form, nodeDates: schedule });
       };
 
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={onClose}/>
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 animate-slide-up overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 to-blue-600">
+          <div className="relative w-full max-w-3xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 animate-slide-up overflow-hidden flex flex-col">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-500 to-blue-600 flex-shrink-0">
               <h2 className="text-lg font-bold text-white">新建项目</h2>
-              <p className="text-blue-100/80 text-xs mt-1">创建一个新的研发项目，系统将自动生成 5 个标准阶段</p>
+              <p className="text-blue-100/80 text-xs mt-1">创建 5 个标准阶段，所有节点默认待开始，可自定义每个节点的计划日期</p>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">项目名称</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={e => { setForm(p => ({ ...p, name: e.target.value })); setError(''); }}
-                  placeholder="例如：智能烤箱 Y9"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition-all"
-                />
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">项目名称</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={e => { setForm(p => ({ ...p, name: e.target.value })); setError(''); }}
+                    placeholder="例如：智能烤箱 Y9"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">负责人</label>
+                  <input
+                    type="text"
+                    value={form.owner}
+                    onChange={e => { setForm(p => ({ ...p, owner: e.target.value })); setError(''); }}
+                    placeholder="例如：李四"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition-all"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">负责人</label>
-                <input
-                  type="text"
-                  value={form.owner}
-                  onChange={e => { setForm(p => ({ ...p, owner: e.target.value })); setError(''); }}
-                  placeholder="例如：李四"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">启动日期</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">项目启动日期</label>
                 <input
                   type="date"
                   value={form.startDate}
-                  onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition-all"
+                  onChange={e => {
+                    const value = e.target.value;
+                    setForm(p => ({ ...p, startDate: value }));
+                    setSchedule(makeSchedule(value));
+                    setError('');
+                  }}
+                  className="w-full md:w-1/2 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition-all"
                 />
+              </div>
+
+              <div className="rounded-lg border border-slate-200 overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="text-sm font-semibold text-slate-700">节点计划日期</div>
+                  <div className="text-[11px] text-slate-400">可逐项调整开始/结束日期</div>
+                </div>
+                <div className="max-h-[42vh] overflow-y-auto p-3 space-y-3">
+                  {initialPhases(form.startDate).map(phase => (
+                    <div key={phase.id} className="rounded-lg border border-slate-200 overflow-hidden">
+                      <div className="px-3 py-2 bg-slate-50 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: phase.color }}/>
+                        <span className="text-xs font-semibold text-slate-700">{phase.name}</span>
+                        <span className="text-[10px] text-slate-400">{phase.nodes.length} 个节点</span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {phase.nodes.map(node => {
+                          const dates = schedule[node.id] || {};
+                          return (
+                            <div key={node.id} className="px-3 py-2.5 grid grid-cols-1 md:grid-cols-[minmax(150px,1fr)_160px_160px] gap-2 items-center">
+                              <div className="text-xs text-slate-700 truncate" title={node.name}>{node.name}</div>
+                              <label className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-slate-400 w-12">开始</span>
+                                <input type="date" value={dates.start || ''} onChange={e => updateSchedule(node.id, 'start', e.target.value)} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 focus:outline-none focus:border-blue-400" />
+                              </label>
+                              <label className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-slate-400 w-12">结束</span>
+                                <input type="date" value={dates.end || ''} onChange={e => updateSchedule(node.id, 'end', e.target.value)} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 focus:outline-none focus:border-blue-400" />
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>}
 
               <div className="text-xs text-slate-400 bg-slate-50 rounded-lg p-3">
-                📋 系统将自动创建 5 个标准阶段：产品设计、模具阶段、EBO、EB1、中小批
+                📋 新项目所有节点默认为「待开始」，实际推进时可在节点详情中更新状态。
               </div>
 
               <div className="flex gap-3">
@@ -2539,7 +2613,6 @@
         </div>
       );
     };
-
     // --- WeCom Push Toast (模拟企业微信机器人推送) ---
 
     // --- Activity Log Panel ---
@@ -3425,6 +3498,7 @@
                   projectName: form.name,
                   owner: form.owner,
                   startDate: form.startDate,
+                  nodeDates: form.nodeDates,
                 });
                 setShowAddProject(false);
                 setAddForm({ name: '', owner: '', startDate: dateStr(new Date()) });

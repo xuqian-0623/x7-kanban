@@ -18,15 +18,17 @@
   </style>
 </head>
 <body>
+  <div id="viewport">
   <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">正在读取数据… · 左右键切换项目 · 确定键刷新</span></div>
   <div class="summary" id="summary"></div>
   <div class="profile" id="profile"></div>
   <div id="content"><div class="message">正在连接项目服务器…</div></div>
+  </div>
   <script>
   (function(){
     var API='https://x7-kanban-api.xuqian0623.workers.dev';
     var PROJECT='',PROJECTS=[],PROJECT_INDEX=0,LAST='',LAST_KEY_TIME=0;
-    var title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),profile=document.getElementById('profile'),content=document.getElementById('content');
+    var viewport=document.getElementById('viewport'),title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),profile=document.getElementById('profile'),content=document.getElementById('content');
     function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
     function date(v){if(!v)return '--';var d=new Date(v);return isNaN(d.getTime())?'--':('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
     function overdue(n){if(!n.planEnd||n.status==='completed')return false;var today=new Date(),end=new Date(n.planEnd);today.setHours(0,0,0,0);end.setHours(0,0,0,0);return end<today}
@@ -54,16 +56,22 @@
         for(j=0;j<(p.nodes||[]).length;j++){n=p.nodes[j];html+='<div class="node '+esc(n.status||'pending')+((n.delay||overdue(n))?' delayed':'')+'"><div class="name">'+esc(n.name)+'</div><div class="meta">'+date(n.planStart)+' → '+date(n.planEnd)+(n.owner?'　'+esc(n.owner):'')+'</div><span class="status">'+label(n)+'</span></div>'}
         html+='</div></section>';
       }
-      content.innerHTML=html+'</div>';setTimeout(fitBoard,0);
+      content.innerHTML=html+'</div>';setTimeout(fitScreen,0);
     }
-    function fitBoard(){
-      var board=content.getElementsByClassName('board')[0],phases=content.getElementsByClassName('phase'),i,max=0,available,scale;
-      if(!board||!phases.length)return;
-      board.style.zoom='1';board.style.width='100%';
-      for(i=0;i<phases.length;i++)if(phases[i].offsetHeight>max)max=phases[i].offsetHeight;
-      available=document.documentElement.clientHeight-board.offsetTop-12;
-      scale=Math.min(1,available/(max+20));scale=Math.max(.55,scale);
-      if(scale<1){board.style.width='100%';board.style.zoom=String(scale)}
+    function fitScreen(){
+      var screenWidth=document.documentElement.clientWidth||window.innerWidth,screenHeight=document.documentElement.clientHeight||window.innerHeight,naturalWidth,naturalHeight,scale;
+      if(!viewport||!screenWidth||!screenHeight)return;
+      viewport.style.zoom='1';viewport.style.width='100%';
+      naturalWidth=Math.max(viewport.scrollWidth,viewport.offsetWidth);
+      naturalHeight=Math.max(viewport.scrollHeight,viewport.offsetHeight);
+      scale=Math.min(1,screenWidth/naturalWidth,screenHeight/naturalHeight);
+      if(scale<1){
+        viewport.style.width=(100/scale)+'%';
+        naturalHeight=Math.max(viewport.scrollHeight,viewport.offsetHeight);
+        scale=Math.min(scale,screenHeight/naturalHeight);
+        viewport.style.width=(100/scale)+'%';
+        viewport.style.zoom=String(scale);
+      }
     }
     function loadProject(project){
       var xhr=new XMLHttpRequest();sync.className='sync';sync.innerHTML='正在同步…';
@@ -83,6 +91,7 @@ function manualRefresh(){var now=new Date().getTime();if(now-LAST_KEY_TIME<1000)
 function switchProject(step){if(PROJECTS.length<2){sync.className='sync';sync.innerHTML='当前只有 1 个项目 · 确定键刷新';return}PROJECT_INDEX=(PROJECT_INDEX+step+PROJECTS.length)%PROJECTS.length;PROJECT=PROJECTS[PROJECT_INDEX];try{localStorage.setItem('x7-tv-project',PROJECT)}catch(ignore){}LAST='';title.innerHTML=esc(PROJECT);sync.className='sync';sync.innerHTML='正在切换项目 '+(PROJECT_INDEX+1)+' / '+PROJECTS.length+'…';loadProject(PROJECT)}
 window.refreshKanban=manualRefresh;
 window.switchKanbanProject=switchProject;
+window.onresize=function(){setTimeout(fitScreen,0)};
 document.onkeydown=function(e){var code=(e||window.event).keyCode;if(code===13||code===23||code===66){if(e&&e.preventDefault)e.preventDefault();manualRefresh();return false}if(code===37||code===21){if(e&&e.preventDefault)e.preventDefault();switchProject(-1);return false}if(code===39||code===22){if(e&&e.preventDefault)e.preventDefault();switchProject(1);return false}};
     load();setInterval(load,10000);
   }());

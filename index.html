@@ -1402,7 +1402,7 @@
     };
 
     // --- Project Profile Section (项目简介：效果图 + 基础参数 + 核心卖点) ---
-    const ProjectProfile = ({ profile, dispatch }) => {
+    const ProjectProfile = ({ profile, onSave }) => {
       const initialImage = profile && profile.image ? profile.image : null;
       const initialParams = profile && profile.params ? profile.params : '';
       const initialSelling = profile && profile.sellingPoints ? profile.sellingPoints : '';
@@ -1420,9 +1420,9 @@
         setSellingPoints(initialSelling);
       }, [initialImage, initialParams, initialSelling, editing]);
 
-      const handleSave = () => {
-        dispatch({ type: actionTypes.UPDATE_PROJECT_PROFILE, payload: { image: image, params: params, sellingPoints: sellingPoints } });
-        setEditing(false);
+      const handleSave = async () => {
+        const saved = await onSave({ image: image, params: params, sellingPoints: sellingPoints });
+        if (saved !== false) setEditing(false);
       };
 
       const handleCancel = () => {
@@ -3486,6 +3486,49 @@
         pushReworkNotice(state, sourceNodeId, targetPhaseId, `${s?.name || sourceNodeId}-V2`, downstream.slice(0, 5), reason);
       }, [state]);
 
+      const handleSaveProjectProfile = useCallback(async (profilePayload) => {
+        const apiBase = window.__API_BASE__;
+        const apiKey = window.__API_KEY__;
+        const key = state.projectName || 'default';
+        const nextState = { ...state, projectProfile: { ...(state.projectProfile || {}), ...profilePayload } };
+        const lean = {
+          ...nextState,
+          savedProjects: [],
+          productImages: [],
+          productFiles: [],
+          phases: nextState.phases.map(p => ({
+            ...p,
+            nodes: p.nodes.map(n => ({
+              ...n,
+              notesHistory: n.notesHistory ? n.notesHistory.slice(-1) : []
+            }))
+          }))
+        };
+        if (!apiBase || !apiKey) {
+          alert('云端尚未连接，简介未保存，请稍后重试');
+          return false;
+        }
+        try {
+          const res = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+            body: JSON.stringify({ state: lean }),
+          });
+          if (!res.ok) throw new Error(`服务器响应 ${res.status}`);
+          const data = await res.json().catch(() => ({}));
+          const updatedAt = Number(data.updatedAt || Date.now());
+          lastCloudUpdatedRef.current = updatedAt;
+          cloudUpdatedByProjectRef.current[key] = updatedAt;
+          localStorage.setItem('x7-cloud-updated-at', String(updatedAt));
+          applyingCloudRef.current = true;
+          dispatch({ type: actionTypes.UPDATE_PROJECT_PROFILE, payload: profilePayload });
+          return true;
+        } catch (e) {
+          alert(`简介保存失败：${e.message}\n请检查网络后重试`);
+          return false;
+        }
+      }, [state]);
+
       const { done, total } = countCompleted(state.phases);
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
 
@@ -3495,7 +3538,7 @@
             {/* Top Header */}
             <ProjectHeader state={state} dispatch={dispatch} onTerminate={() => setTerminateModalOpen(true)} onRestore={() => { dispatch({ type: actionTypes.RESTORE_PROJECT }); pushSimpleEvent(state, '🔄 项目已从终止状态恢复，节点操作已解锁'); }} onAddProject={() => setShowAddProject(true)} onSwitchProject={(name) => dispatch({ type: actionTypes.SWITCH_PROJECT, projectName: name })} onReworkHistory={() => setReworkHistoryOpen(true)} />
             {/* Project Profile */}
-            <ProjectProfile profile={state.projectProfile} dispatch={dispatch} />
+            <ProjectProfile profile={state.projectProfile} onSave={handleSaveProjectProfile} />
             </div>
             {/* Kanban Board */}
             <div className="flex gap-4 overflow-x-auto pb-4 kanban-scroll phase-wrapper">

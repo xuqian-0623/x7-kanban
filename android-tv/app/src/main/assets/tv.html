@@ -78,8 +78,9 @@
       xhr.onerror=function(){fail('网络连接失败')};xhr.ontimeout=function(){fail('连接超时')};xhr.send(null);
     }
     function fail(msg){sync.className='sync error';sync.innerHTML='同步失败 · 确定键重试';if(content.getElementsByClassName('board').length===0)content.innerHTML='<div class="message">应用已正常启动<br>暂时无法读取数据：'+esc(msg)+'<br>按遥控器确定键立即重试</div>'}
-window.refreshKanban=load;
-document.onkeydown=function(e){var code=(e||window.event).keyCode,now=new Date().getTime();if((code===13||code===23||code===66)&&now-LAST_KEY_TIME>1000){LAST_KEY_TIME=now;if(e&&e.preventDefault)e.preventDefault();load();return false}};
+function manualRefresh(){var now=new Date().getTime();if(now-LAST_KEY_TIME<1000)return;LAST_KEY_TIME=now;sync.className='sync';sync.innerHTML='手动刷新中…';load()}
+window.refreshKanban=manualRefresh;
+document.onkeydown=function(e){var code=(e||window.event).keyCode;if(code===13||code===23||code===66){if(e&&e.preventDefault)e.preventDefault();manualRefresh();return false}};
     load();setInterval(load,300000);
   }());
   </script>

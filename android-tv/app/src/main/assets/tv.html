@@ -10,7 +10,7 @@
     h1{display:inline-block;margin:0;font-size:23px}.sync{float:right;margin-top:5px;color:#64748b}.ok{color:#059669}.error{color:#dc2626}
     .summary{display:none;align-items:center;gap:22px;margin:0 10px 8px;padding:8px 14px;background:#fff;border:1px solid #d8e1ec;border-top:0;border-radius:0 0 10px 10px;color:#64748b;font-size:11px}.summary.show{display:flex}.project-meta{min-width:180px}.project-meta b{display:block;color:#334155;font-size:13px;margin-bottom:3px}.stats{display:flex;gap:18px;flex:1}.stat b{display:block;color:#0f172a;font-size:17px}.progress{width:220px;color:#334155}.track{height:7px;margin-top:5px;background:#dbe5f1;border-radius:4px;overflow:hidden}.bar{height:100%;background:#3b82f6}.days{min-width:82px;text-align:center}.days b{display:block;color:#10b981;font-size:21px}
     .profile{display:none;margin:0 10px 8px;padding:7px 12px;background:#fff;border:1px solid #d8e1ec;border-radius:8px;color:#64748b;font-size:10px;white-space:nowrap;overflow:hidden}.profile.show{display:flex;align-items:center;gap:14px}.profile-title{color:#1e293b;font-size:12px;font-weight:bold}.profile-item{min-width:0;overflow:hidden;text-overflow:ellipsis}.profile-item b{color:#475569}.profile-empty{color:#94a3b8}
-    .board{display:flex;align-items:flex-start;gap:8px;width:100%;padding:0 10px 8px;overflow:hidden}.phase{flex:1 1 0;min-width:0;background:#fff;border:1px solid #d8e1ec;border-radius:8px;overflow:hidden;box-shadow:0 2px 5px rgba(15,23,42,.08)}
+    .board{display:flex;align-items:flex-start;gap:6px;width:100%;padding:0 26px 8px 14px;overflow:hidden}.phase{flex:1 1 0;min-width:0;background:#fff;border:1px solid #d8e1ec;border-radius:8px;overflow:hidden;box-shadow:0 2px 5px rgba(15,23,42,.08)}
     .head{padding:9px 10px;border-top:4px solid #3b82f6;background:#f8fafc;font-size:16px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.count{margin-top:4px;color:#64748b;font-size:10px;font-weight:normal}
     .nodes{padding:6px}.node{margin-bottom:6px;padding:8px;background:#fff;border:1px solid #dbe3ed;border-radius:7px}.name{font-size:13px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.meta{margin-top:5px;color:#64748b;font-size:10px}.status{display:inline-block;margin-top:5px;padding:2px 7px;border-radius:9px;background:#e8eef6;color:#64748b;font-size:10px}
     .completed{background:#ecfdf5;border-color:#a7f3d0}.completed .status{background:#d1fae5;color:#059669}.ongoing{background:#eff6ff;border-color:#bfdbfe}.ongoing .status{background:#dbeafe;color:#2563eb}.delayed{background:#fff1f2;border-color:#fda4af}.delayed .status{background:#ffe4e6;color:#dc2626}
@@ -25,7 +25,7 @@
   <script>
   (function(){
     var API='https://x7-kanban-api.xuqian0623.workers.dev';
-    var PROJECT='';
+    var PROJECT='',LAST='';
     var title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),profile=document.getElementById('profile'),content=document.getElementById('content');
     function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
     function date(v){if(!v)return '--';var d=new Date(v);return isNaN(d.getTime())?'--':('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
@@ -62,12 +62,12 @@
       for(i=0;i<phases.length;i++)if(phases[i].offsetHeight>max)max=phases[i].offsetHeight;
       available=document.documentElement.clientHeight-board.offsetTop-12;
       scale=Math.min(1,available/(max+20));scale=Math.max(.55,scale);
-      if(scale<1){board.style.width=(100/scale)+'%';board.style.zoom=String(scale)}
+      if(scale<1){board.style.width='100%';board.style.zoom=String(scale)}
     }
     function loadProject(project){
       var xhr=new XMLHttpRequest();sync.className='sync';sync.innerHTML='正在同步…';
       xhr.open('GET',API+'/api/state/'+encodeURIComponent(project)+'?_='+new Date().getTime(),true);xhr.timeout=30000;
-      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText);if(!data.state)throw new Error('服务器暂无项目数据');render(data.state);sync.className='sync ok';sync.innerHTML='已更新 '+new Date().toLocaleTimeString()}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
+      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText);if(!data.state)throw new Error('服务器暂无项目数据');if(xhr.responseText!==LAST){LAST=xhr.responseText;render(data.state)}sync.className='sync ok';sync.innerHTML='已更新 '+new Date().toLocaleTimeString()}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
       xhr.onerror=function(){fail('网络连接失败')};xhr.ontimeout=function(){fail('连接超时，服务器可能正在唤醒')};xhr.send(null);
     }
     function load(){
@@ -78,7 +78,7 @@
       xhr.onerror=function(){fail('网络连接失败')};xhr.ontimeout=function(){fail('连接超时')};xhr.send(null);
     }
     function fail(msg){sync.className='sync error';sync.innerHTML='同步失败';if(content.getElementsByClassName('board').length===0)content.innerHTML='<div class="message">应用已正常启动<br>暂时无法读取数据：'+esc(msg)+'<br>15 秒后自动重试</div>'}
-    load();setInterval(load,15000);
+    load();setInterval(load,300000);
   }());
   </script>
 </body>

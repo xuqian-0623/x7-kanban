@@ -42,14 +42,15 @@ export default async function handler(req, res) {
 
   // ====== /api/state/:project ======
   if (segments[0] === 'api' && segments[1] === 'state' && segments[2]) {
-    if (!auth(req, res)) return;
     const project = segments[2];
     if (req.method === 'GET') {
       const s = store.projects.get(project);
       if (!s) return json(res, { error: 'not found' }, 404);
-      return json(res, { state: s.state });
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      return json(res, { state: s.state, updatedAt: s.updatedAt || null });
     }
     if (req.method === 'PUT') {
+      if (!auth(req, res)) return;
       const { state } = req.body;
       if (!state) return json(res, { error: 'missing state' }, 400);
       store.projects.set(project, { state, updatedAt: Date.now() });

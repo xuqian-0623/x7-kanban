@@ -70,7 +70,8 @@ app.get('/api/projects', (req, res) => {
 app.get('/api/state/:project', (req, res) => {
   const p = findProject(req.params.project);
   if (!p) return res.status(404).json({ error: 'not found', available: Object.keys(data.projects) });
-  res.json({ state: p.state });
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.json({ state: p.state, updatedAt: p.updatedAt || null });
 });
 
 app.put('/api/state/:project', (req, res) => {

@@ -107,9 +107,19 @@ public final class MainActivity extends Activity {
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction() == KeyEvent.ACTION_DOWN && isRefreshKey(event.getKeyCode())) {
-            webView.loadUrl("javascript:window.refreshKanban&&window.refreshKanban()");
-            return true;
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (isRefreshKey(event.getKeyCode())) {
+                webView.loadUrl("javascript:window.refreshKanban&&window.refreshKanban()");
+                return true;
+            }
+            if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT) {
+                webView.loadUrl("javascript:window.switchKanbanProject&&window.switchKanbanProject(-1)");
+                return true;
+            }
+            if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                webView.loadUrl("javascript:window.switchKanbanProject&&window.switchKanbanProject(1)");
+                return true;
+            }
         }
         return super.dispatchKeyEvent(event);
     }

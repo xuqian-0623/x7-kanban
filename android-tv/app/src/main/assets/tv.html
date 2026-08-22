@@ -18,14 +18,14 @@
   </style>
 </head>
 <body>
-  <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">应用已启动，正在读取数据…（确定键刷新）</span></div>
+  <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">正在读取数据… · 左右键切换项目 · 确定键刷新</span></div>
   <div class="summary" id="summary"></div>
   <div class="profile" id="profile"></div>
   <div id="content"><div class="message">正在连接项目服务器…</div></div>
   <script>
   (function(){
     var API='https://x7-kanban-api.xuqian0623.workers.dev';
-    var PROJECT='',LAST='',LAST_KEY_TIME=0;
+    var PROJECT='',PROJECTS=[],PROJECT_INDEX=0,LAST='',LAST_KEY_TIME=0;
     var title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),profile=document.getElementById('profile'),content=document.getElementById('content');
     function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
     function date(v){if(!v)return '--';var d=new Date(v);return isNaN(d.getTime())?'--':('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
@@ -68,20 +68,22 @@
     function loadProject(project){
       var xhr=new XMLHttpRequest();sync.className='sync';sync.innerHTML='正在同步…';
       xhr.open('GET',API+'/api/state/'+encodeURIComponent(project)+'?_='+new Date().getTime(),true);xhr.timeout=30000;
-      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText);if(!data.state)throw new Error('服务器暂无项目数据');if(xhr.responseText!==LAST){LAST=xhr.responseText;render(data.state)}sync.className='sync ok';sync.innerHTML='已更新 '+new Date().toLocaleTimeString()+' · 确定键刷新'}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
+      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText);if(!data.state)throw new Error('服务器暂无项目数据');if(xhr.responseText!==LAST){LAST=xhr.responseText;render(data.state)}sync.className='sync ok';sync.innerHTML='已更新 '+new Date().toLocaleTimeString()+' · 左右键切换 · 确定键刷新'}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
       xhr.onerror=function(){fail('网络连接失败')};xhr.ontimeout=function(){fail('连接超时，服务器可能正在唤醒')};xhr.send(null);
     }
     function load(){
       if(PROJECT){loadProject(PROJECT);return}
       var xhr=new XMLHttpRequest();sync.className='sync';sync.innerHTML='正在读取项目…';
       xhr.open('GET',API+'/api/projects?_='+new Date().getTime(),true);xhr.timeout=30000;
-      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText),items=data.projects||[];if(!items.length)throw new Error('云端暂无项目');PROJECT=items[0].name;loadProject(PROJECT)}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
+      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText),items=data.projects||[],saved='',i;if(!items.length)throw new Error('云端暂无项目');PROJECTS=[];for(i=0;i<items.length;i++)PROJECTS.push(items[i].name);try{saved=localStorage.getItem('x7-tv-project')||''}catch(ignore){}PROJECT_INDEX=0;for(i=0;i<PROJECTS.length;i++)if(PROJECTS[i]===saved){PROJECT_INDEX=i;break}PROJECT=PROJECTS[PROJECT_INDEX];loadProject(PROJECT)}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
       xhr.onerror=function(){fail('网络连接失败')};xhr.ontimeout=function(){fail('连接超时')};xhr.send(null);
     }
     function fail(msg){sync.className='sync error';sync.innerHTML='同步失败 · 确定键重试';if(content.getElementsByClassName('board').length===0)content.innerHTML='<div class="message">应用已正常启动<br>暂时无法读取数据：'+esc(msg)+'<br>按遥控器确定键立即重试</div>'}
 function manualRefresh(){var now=new Date().getTime();if(now-LAST_KEY_TIME<1000)return;LAST_KEY_TIME=now;sync.className='sync';sync.innerHTML='手动刷新中…';load()}
+function switchProject(step){if(PROJECTS.length<2){sync.className='sync';sync.innerHTML='当前只有 1 个项目 · 确定键刷新';return}PROJECT_INDEX=(PROJECT_INDEX+step+PROJECTS.length)%PROJECTS.length;PROJECT=PROJECTS[PROJECT_INDEX];try{localStorage.setItem('x7-tv-project',PROJECT)}catch(ignore){}LAST='';title.innerHTML=esc(PROJECT);sync.className='sync';sync.innerHTML='正在切换项目 '+(PROJECT_INDEX+1)+' / '+PROJECTS.length+'…';loadProject(PROJECT)}
 window.refreshKanban=manualRefresh;
-document.onkeydown=function(e){var code=(e||window.event).keyCode;if(code===13||code===23||code===66){if(e&&e.preventDefault)e.preventDefault();manualRefresh();return false}};
+window.switchKanbanProject=switchProject;
+document.onkeydown=function(e){var code=(e||window.event).keyCode;if(code===13||code===23||code===66){if(e&&e.preventDefault)e.preventDefault();manualRefresh();return false}if(code===37||code===21){if(e&&e.preventDefault)e.preventDefault();switchProject(-1);return false}if(code===39||code===22){if(e&&e.preventDefault)e.preventDefault();switchProject(1);return false}};
     load();setInterval(load,300000);
   }());
   </script>

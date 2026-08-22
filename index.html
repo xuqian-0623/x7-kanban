@@ -487,19 +487,23 @@
       UPDATE_PROJECT_PROFILE: 'UPDATE_PROJECT_PROFILE',
     };
 
+    const reviveProjectState = (value) => JSON.parse(
+      typeof value === 'string' ? value : JSON.stringify(value),
+      (key, val) => {
+        const dateKeys = ['planStart', 'planEnd', 'actualEnd', 'expectedRecovery', 'passedAt'];
+        if (dateKeys.includes(key) && typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
+          return new Date(val);
+        }
+        return val;
+      }
+    );
+
     const initState = () => {
       // 尝试从 localStorage 恢复
       try {
         const cached = localStorage.getItem('x7-kanban-state');
         if (cached) {
-          const parsed = JSON.parse(cached, (key, val) => {
-            // 恢复 Date 对象：识别 ISO 日期字符串
-            const dateKeys = ['planStart', 'planEnd', 'actualEnd', 'expectedRecovery', 'passedAt'];
-            if (dateKeys.includes(key) && typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
-              return new Date(val);
-            }
-            return val;
-          });
+          const parsed = reviveProjectState(cached);
           if (parsed && parsed.phases && parsed.phases.length > 0) {
             // Backward compat: old productImage string → productImages array
             if (parsed.productImage && !parsed.productImages) {
@@ -1235,10 +1239,11 @@
                           if (getRes.ok) {
                             const d = await getRes.json();
                             if (d.state) {
+                              const remoteState = reviveProjectState(d.state);
                               merged = {
                                 ...state,
-                                phases: d.state.phases || state.phases,
-                                projectName: d.state.projectName || state.projectName,
+                                phases: remoteState.phases || state.phases,
+                                projectName: remoteState.projectName || state.projectName,
                                 productImages: state.productImages || [],
                                 productFiles: state.productFiles || [],
                               };
@@ -3160,13 +3165,85 @@
       // 后端同步初始化（默认连 Render，可通过 ?api= 或 x7-api-base 自定义）
       // 仅设置 API base，不自动 PUT/GET，避免请求风暴
       const backendInitRef = React.useRef(false);
+      const autoSyncReadyRef = React.useRef(false);
       useEffect(() => {
         if (backendInitRef.current) return;
         backendInitRef.current = true;
         const params = new URLSearchParams(window.location.search);
         const apiBase = params.get('api') || (localStorage.getItem('x7-api-base') || 'https://x7-kanban.onrender.com');
         window.__API_BASE__ = apiBase;
+        window.__API_KEY__ = localStorage.getItem('x7-api-key') || 'x7-kanban-secret-2026';
         console.log('[Backend] API base:', apiBase);
+      }, []);
+
+      // 编辑端自动保存到共享后端。首次加载不上传，避免用本地初始值覆盖云端；
+      // 后续变更合并为一次延迟写入，电视端可轮询读取最新状态。
+      useEffect(() => {
+        if (!backendInitRef.current) return;
+        if (!autoSyncReadyRef.current) {
+          autoSyncReadyRef.current = true;
+          return;
+        }
+        const timer = setTimeout(async () => {
+          const apiBase = window.__API_BASE__;
+          const apiKey = window.__API_KEY__;
+          const key = state.projectName || 'default';
+          if (!apiBase || !apiKey) return;
+          const lean = {
+            ...state,
+            productImages: [],
+            productFiles: [],
+            phases: state.phases.map(p => ({
+              ...p,
+              nodes: p.nodes.map(n => ({
+                ...n,
+                notesHistory: n.notesHistory ? n.notesHistory.slice(-1) : []
+              }))
+            }))
+          };
+          try {
+            const res = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+              body: JSON.stringify({ state: lean }),
+            });
+            if (!res.ok) console.warn('[Backend] 自动同步失败:', res.status);
+          } catch (e) {
+            console.warn('[Backend] 自动同步暂不可用:', e.message);
+          }
+        }, 1500);
+        return () => clearTimeout(timer);
+      }, [state]);
+
+      // 启动时把这台编辑电脑已有的本地看板推送一次，确保电视首次打开即可读取；
+      // 没有本地数据时则从云端恢复，避免用模板覆盖现有项目。
+      useEffect(() => {
+        const apiBase = window.__API_BASE__;
+        const apiKey = window.__API_KEY__;
+        const key = state.projectName || 'default';
+        if (!apiBase) return;
+        const hasLocalState = !!localStorage.getItem('x7-kanban-state');
+        const timer = setTimeout(async () => {
+          try {
+            if (!hasLocalState) {
+              const res = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}?_=${Date.now()}`, { cache: 'no-store' });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.state) dispatch({ type: 'FULL_SYNC', payload: reviveProjectState(data.state) });
+              }
+              return;
+            }
+            const lean = { ...state, productImages: [], productFiles: [] };
+            await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+              body: JSON.stringify({ state: lean }),
+            });
+          } catch (e) {
+            console.warn('[Backend] 初始同步暂不可用:', e.message);
+          }
+        }, 2500);
+        return () => clearTimeout(timer);
       }, []);
 
       // 跨标签页实时同步（一窗操作，其他窗户自动更新）

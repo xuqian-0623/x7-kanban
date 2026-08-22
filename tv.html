@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>X7 项目电视看板</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #08111f; color: #e5edf8; }
+    body { font-family: Arial, "Microsoft YaHei", sans-serif; overflow-x: hidden; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10; display: flex; align-items: center;
+      justify-content: space-between; padding: 18px 24px; background: #0d192b;
+      border-bottom: 1px solid #24334a; box-shadow: 0 4px 18px rgba(0,0,0,.25);
+    }
+    .title { font-size: 28px; font-weight: bold; }
+    .subtitle { margin-top: 5px; color: #91a4bf; font-size: 14px; }
+    .summary { display: flex; align-items: center; gap: 18px; }
+    .progress-text { font-size: 26px; font-weight: bold; color: #62a5ff; }
+    .sync { min-width: 150px; text-align: right; font-size: 14px; color: #9fb0c8; }
+    .sync.ok { color: #62d49b; }
+    .sync.error { color: #ff8b8b; }
+    .progress-track { width: 220px; height: 9px; overflow: hidden; border-radius: 8px; background: #22324a; }
+    .progress-bar { height: 100%; width: 0; background: #3b82f6; transition: width .4s ease; }
+    .board { display: flex; gap: 16px; padding: 18px; overflow-x: auto; align-items: flex-start; }
+    .phase { flex: 0 0 286px; background: #0e1b2e; border: 1px solid #243650; border-radius: 12px; overflow: hidden; }
+    .phase-head { padding: 14px 16px; border-top: 4px solid #3b82f6; background: #12223a; }
+    .phase-name { font-size: 20px; font-weight: bold; }
+    .phase-count { margin-top: 5px; color: #91a4bf; font-size: 13px; }
+    .nodes { padding: 10px; }
+    .node { margin-bottom: 9px; padding: 12px; border-radius: 9px; background: #14243a; border: 1px solid #273a55; }
+    .node:last-child { margin-bottom: 0; }
+    .node-title { font-size: 16px; font-weight: bold; line-height: 1.35; }
+    .node-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; color: #98aac2; font-size: 12px; }
+    .status { display: inline-block; margin-top: 8px; padding: 3px 8px; border-radius: 10px; font-size: 12px; }
+    .completed .status { background: #113b32; color: #68d6ac; }
+    .ongoing .status { background: #173b68; color: #82b9ff; }
+    .pending .status { background: #323b4a; color: #bdc8d8; }
+    .delayed { border-color: #a74747; }
+    .delayed .status { background: #552626; color: #ffaaaa; }
+    .empty, .fatal { margin: 60px auto; max-width: 720px; padding: 30px; text-align: center; border-radius: 12px; background: #102039; }
+    .fatal { border: 1px solid #7f3434; color: #ffb0b0; }
+    @media (min-width: 1500px) {
+      .phase { flex-basis: 310px; }
+      .node-title { font-size: 17px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="title" id="projectTitle">X7 项目看板</div>
+      <div class="subtitle">电视只读模式 · 每 15 秒自动更新</div>
+    </div>
+    <div class="summary">
+      <div>
+        <div class="progress-text" id="progressText">--</div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+      </div>
+      <div class="sync" id="syncStatus">正在连接云端…</div>
+    </div>
+  </header>
+  <main id="content"><div class="empty">正在读取最新项目状态…</div></main>
+
+  <script>
+    (function () {
+      'use strict';
+      var params = new URLSearchParams(window.location.search);
+      var apiBase = params.get('api') || 'https://x7-kanban.onrender.com';
+      var project = params.get('project') || '智能空气炸锅 X7';
+      var intervalMs = Math.max(5000, parseInt(params.get('interval') || '15000', 10));
+      var titleEl = document.getElementById('projectTitle');
+      var contentEl = document.getElementById('content');
+      var statusEl = document.getElementById('syncStatus');
+      var progressEl = document.getElementById('progressText');
+      var progressBarEl = document.getElementById('progressBar');
+
+      function text(value) {
+        return document.createTextNode(value == null ? '' : String(value));
+      }
+
+      function formatDate(value) {
+        if (!value) return '--';
+        var date = new Date(value);
+        if (isNaN(date.getTime())) return '--';
+        var month = date.getMonth() + 1;
+        var day = date.getDate();
+        return (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day;
+      }
+
+      function statusLabel(node) {
+        if (node.delay) return '延期';
+        if (node.status === 'completed') return '已完成';
+        if (node.status === 'ongoing') return '进行中';
+        return '待开始';
+      }
+
+      function render(state) {
+        var phases = state.phases || [];
+        var total = 0;
+        var done = 0;
+        titleEl.textContent = state.projectName || project;
+        document.title = (state.projectName || project) + ' · 电视看板';
+
+        phases.forEach(function (phase) {
+          (phase.nodes || []).forEach(function (node) {
+            total += 1;
+            if (node.status === 'completed') done += 1;
+          });
+        });
+        var progress = total ? Math.round(done * 100 / total) : 0;
+        progressEl.textContent = progress + '%';
+        progressBarEl.style.width = progress + '%';
+
+        var board = document.createElement('div');
+        board.className = 'board';
+        phases.forEach(function (phase) {
+          var completed = 0;
+          var nodes = phase.nodes || [];
+          nodes.forEach(function (node) { if (node.status === 'completed') completed += 1; });
+
+          var column = document.createElement('section');
+          column.className = 'phase';
+          var head = document.createElement('div');
+          head.className = 'phase-head';
+          head.style.borderTopColor = phase.color || '#3b82f6';
+          var name = document.createElement('div');
+          name.className = 'phase-name';
+          name.appendChild(text(phase.name));
+          var count = document.createElement('div');
+          count.className = 'phase-count';
+          count.appendChild(text(completed + ' / ' + nodes.length + ' 已完成'));
+          head.appendChild(name);
+          head.appendChild(count);
+          column.appendChild(head);
+
+          var list = document.createElement('div');
+          list.className = 'nodes';
+          nodes.forEach(function (node) {
+            var card = document.createElement('article');
+            card.className = 'node ' + (node.status || 'pending') + (node.delay ? ' delayed' : '');
+            var nodeTitle = document.createElement('div');
+            nodeTitle.className = 'node-title';
+            nodeTitle.appendChild(text(node.name));
+            var meta = document.createElement('div');
+            meta.className = 'node-meta';
+            var dates = document.createElement('span');
+            dates.appendChild(text(formatDate(node.planStart) + ' → ' + formatDate(node.planEnd)));
+            var owner = document.createElement('span');
+            owner.appendChild(text(node.owner || ''));
+            meta.appendChild(dates);
+            meta.appendChild(owner);
+            var badge = document.createElement('span');
+            badge.className = 'status';
+            badge.appendChild(text(statusLabel(node)));
+            card.appendChild(nodeTitle);
+            card.appendChild(meta);
+            card.appendChild(badge);
+            list.appendChild(card);
+          });
+          column.appendChild(list);
+          board.appendChild(column);
+        });
+
+        contentEl.innerHTML = '';
+        contentEl.appendChild(board);
+      }
+
+      function load() {
+        var url = apiBase.replace(/\/$/, '') + '/api/state/' + encodeURIComponent(project) + '?_=' + Date.now();
+        statusEl.className = 'sync';
+        statusEl.textContent = '正在同步…';
+        fetch(url, { cache: 'no-store' })
+          .then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+          })
+          .then(function (payload) {
+            if (!payload.state) throw new Error('云端暂无项目数据');
+            render(payload.state);
+            var now = new Date();
+            statusEl.className = 'sync ok';
+            statusEl.textContent = '已更新 ' + now.toLocaleTimeString('zh-CN', { hour12: false });
+          })
+          .catch(function (error) {
+            statusEl.className = 'sync error';
+            statusEl.textContent = '同步失败，稍后重试';
+            if (!contentEl.querySelector('.board')) {
+              contentEl.innerHTML = '<div class="fatal">无法读取项目：' + String(error.message || error) + '<br><br>请先在电脑端修改一次看板，等待自动同步完成。</div>';
+            }
+          });
+      }
+
+      load();
+      window.setInterval(load, intervalMs);
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) load();
+      });
+    }());
+  </script>
+</body>
+</html>

@@ -67,7 +67,7 @@
     (function () {
       'use strict';
       var params = new URLSearchParams(window.location.search);
-      var apiBase = params.get('api') || 'https://x7-kanban.onrender.com';
+      var apiBase = params.get('api') || 'https://x7-kanban-api.xuqian0623.workers.dev';
       var project = params.get('project') || '智能空气炸锅 X7';
       var intervalMs = Math.max(5000, parseInt(params.get('interval') || '15000', 10));
       var titleEl = document.getElementById('projectTitle');

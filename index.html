@@ -3170,7 +3170,11 @@
         if (backendInitRef.current) return;
         backendInitRef.current = true;
         const params = new URLSearchParams(window.location.search);
-        const apiBase = params.get('api') || (localStorage.getItem('x7-api-base') || 'https://x7-kanban.onrender.com');
+        const savedApiBase = localStorage.getItem('x7-api-base');
+        const apiBase = params.get('api') || (!savedApiBase || savedApiBase.includes('x7-kanban.onrender.com')
+          ? 'https://x7-kanban-api.xuqian0623.workers.dev'
+          : savedApiBase);
+        localStorage.setItem('x7-api-base', apiBase);
         window.__API_BASE__ = apiBase;
         window.__API_KEY__ = localStorage.getItem('x7-api-key') || 'x7-kanban-secret-2026';
         console.log('[Backend] API base:', apiBase);

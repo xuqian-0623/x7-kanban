@@ -84,7 +84,7 @@ function switchProject(step){if(PROJECTS.length<2){sync.className='sync';sync.in
 window.refreshKanban=manualRefresh;
 window.switchKanbanProject=switchProject;
 document.onkeydown=function(e){var code=(e||window.event).keyCode;if(code===13||code===23||code===66){if(e&&e.preventDefault)e.preventDefault();manualRefresh();return false}if(code===37||code===21){if(e&&e.preventDefault)e.preventDefault();switchProject(-1);return false}if(code===39||code===22){if(e&&e.preventDefault)e.preventDefault();switchProject(1);return false}};
-    load();setInterval(load,300000);
+    load();setInterval(load,10000);
   }());
   </script>
 </body>

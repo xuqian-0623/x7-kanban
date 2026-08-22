@@ -3139,6 +3139,9 @@
       const [reworkHistoryOpen, setReworkHistoryOpen] = useState(false);
       const [addForm, setAddForm] = useState({ name: '', owner: '', startDate: dateStr(new Date()) });
       const overdueAlertedRef = React.useRef({});
+      const applyingCloudRef = React.useRef(false);
+      const lastCloudUpdatedRef = React.useRef(Number(localStorage.getItem('x7-cloud-updated-at') || 0));
+      const lastLocalEditRef = React.useRef(0);
 
       // Live countdown tick
       useEffect(() => {
@@ -3182,12 +3185,18 @@
 
       // 编辑端自动保存到共享后端。首次加载不上传，避免用本地初始值覆盖云端；
       // 后续变更合并为一次延迟写入，电视端可轮询读取最新状态。
+      const cloudStateSignature = JSON.stringify({ ...state, tick: 0, productImages: [], productFiles: [] });
       useEffect(() => {
         if (!backendInitRef.current) return;
         if (!autoSyncReadyRef.current) {
           autoSyncReadyRef.current = true;
           return;
         }
+        if (applyingCloudRef.current) {
+          applyingCloudRef.current = false;
+          return;
+        }
+        lastLocalEditRef.current = Date.now();
         const timer = setTimeout(async () => {
           const apiBase = window.__API_BASE__;
           const apiKey = window.__API_KEY__;
@@ -3212,42 +3221,46 @@
               body: JSON.stringify({ state: lean }),
             });
             if (!res.ok) console.warn('[Backend] 自动同步失败:', res.status);
+            else {
+              const data = await res.json().catch(() => ({}));
+              if (data.updatedAt) {
+                lastCloudUpdatedRef.current = Number(data.updatedAt);
+                localStorage.setItem('x7-cloud-updated-at', String(data.updatedAt));
+              }
+            }
           } catch (e) {
             console.warn('[Backend] 自动同步暂不可用:', e.message);
           }
         }, 1500);
         return () => clearTimeout(timer);
-      }, [state]);
+      }, [cloudStateSignature]);
 
-      // 启动时把这台编辑电脑已有的本地看板推送一次，确保电视首次打开即可读取；
-      // 没有本地数据时则从云端恢复，避免用模板覆盖现有项目。
+      // 编辑端双向同步：启动时立即检查，之后每 10 秒查看云端版本。
+      // 只在 updatedAt 变新时替换本地状态，数据未变化时不重绘页面。
       useEffect(() => {
-        const apiBase = window.__API_BASE__;
-        const apiKey = window.__API_KEY__;
-        const key = state.projectName || 'default';
-        if (!apiBase) return;
-        const hasLocalState = !!localStorage.getItem('x7-kanban-state');
-        const timer = setTimeout(async () => {
+        let stopped = false;
+        const checkCloud = async () => {
+          const apiBase = window.__API_BASE__;
+          const key = state.projectName || 'default';
+          if (!apiBase || Date.now() - lastLocalEditRef.current < 3500) return;
           try {
-            if (!hasLocalState) {
-              const res = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}?_=${Date.now()}`, { cache: 'no-store' });
-              if (res.ok) {
-                const data = await res.json();
-                if (data.state) dispatch({ type: 'FULL_SYNC', payload: reviveProjectState(data.state) });
-              }
-              return;
+            const res = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}?_=${Date.now()}`, { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            const updatedAt = Number(data.updatedAt || 0);
+            if (!stopped && data.state && updatedAt > lastCloudUpdatedRef.current) {
+              lastCloudUpdatedRef.current = updatedAt;
+              localStorage.setItem('x7-cloud-updated-at', String(updatedAt));
+              applyingCloudRef.current = true;
+              dispatch({ type: 'FULL_SYNC', payload: reviveProjectState(data.state) });
             }
-            const lean = { ...state, productImages: [], productFiles: [] };
-            await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
-              body: JSON.stringify({ state: lean }),
-            });
           } catch (e) {
-            console.warn('[Backend] 初始同步暂不可用:', e.message);
+            console.warn('[Backend] 云端检测暂不可用:', e.message);
           }
-        }, 2500);
-        return () => clearTimeout(timer);
+        };
+        const first = setTimeout(checkCloud, 800);
+        const interval = setInterval(checkCloud, 10000);
+        return () => { stopped = true; clearTimeout(first); clearInterval(interval); };
       }, []);
 
       // 跨标签页实时同步（一窗操作，其他窗户自动更新）

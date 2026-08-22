@@ -6,9 +6,8 @@
   <title>X7 项目看板</title>
   <style>
     *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#08111f;color:#e5edf8}
-    body{font-family:Arial,"Microsoft YaHei",sans-serif}.top{padding:12px 18px;background:#0d192b;border-bottom:1px solid #24334a}
-    h1{display:inline-block;margin:0;font-size:24px}.sync{float:right;margin-top:6px;color:#9fb0c8}.ok{color:#62d49b}.error{color:#ff8b8b}
-    .summary{display:none;align-items:center;gap:18px;padding:8px 18px;background:#0b1728;border-bottom:1px solid #24334a;color:#b9c8dc;font-size:12px}.summary.show{display:flex}.project-meta{min-width:185px}.project-meta b{display:block;color:#fff;font-size:14px;margin-bottom:3px}.stats{display:flex;gap:13px;flex:1}.stat b{display:block;color:#fff;font-size:16px}.progress{width:210px}.track{height:6px;margin-top:5px;background:#26364d;border-radius:4px;overflow:hidden}.bar{height:100%;background:#3b82f6}.days{min-width:72px;text-align:center}.days b{display:block;color:#62d49b;font-size:20px}
+    body{font-family:Arial,"Microsoft YaHei",sans-serif}.top{padding:18px 24px;background:#0d192b;border-bottom:1px solid #24334a}
+    h1{display:inline-block;margin:0;font-size:28px}.sync{float:right;margin-top:8px;color:#9fb0c8}.ok{color:#62d49b}.error{color:#ff8b8b}
     .board{display:flex;align-items:flex-start;gap:8px;width:100%;padding:10px;overflow:hidden}.phase{flex:1 1 0;min-width:0;background:#0e1b2e;border:1px solid #243650;border-radius:8px;overflow:hidden}
     .head{padding:10px 11px;border-top:4px solid #3b82f6;background:#12223a;font-size:17px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.count{margin-top:4px;color:#91a4bf;font-size:11px;font-weight:normal}
     .nodes{padding:6px}.node{margin-bottom:6px;padding:8px;background:#14243a;border:1px solid #273a55;border-radius:6px}.name{font-size:14px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.meta{margin-top:5px;color:#98aac2;font-size:10px}.status{display:inline-block;margin-top:5px;padding:2px 6px;border-radius:9px;background:#323b4a;color:#bdc8d8;font-size:10px}
@@ -18,26 +17,18 @@
 </head>
 <body>
   <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">应用已启动，正在读取数据…</span></div>
-  <div class="summary" id="summary"></div>
   <div id="content"><div class="message">正在连接项目服务器…</div></div>
   <script>
   (function(){
     var API='https://x7-kanban-api.xuqian0623.workers.dev';
     var PROJECT='';
-    var title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),content=document.getElementById('content');
+    var title=document.getElementById('title'),sync=document.getElementById('sync'),content=document.getElementById('content');
     function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
     function date(v){if(!v)return '--';var d=new Date(v);return isNaN(d.getTime())?'--':('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
     function label(n){return n.delay?'延期':n.status==='completed'?'已完成':n.status==='ongoing'?'进行中':'待开始'}
-    function renderSummary(state){
-      var phases=state.phases||[],i,j,n,total=0,done=0,doing=0,late=0,pending=0,days='--',launch,pct;
-      for(i=0;i<phases.length;i++)for(j=0;j<(phases[i].nodes||[]).length;j++){n=phases[i].nodes[j];total++;if(n.status==='completed')done++;else if(n.delay)late++;else if(n.status==='ongoing')doing++;else pending++}
-      pct=total?Math.round(done*100/total):0;launch=new Date(state.launchDate);if(!isNaN(launch.getTime()))days=Math.ceil((launch.getTime()-new Date().getTime())/86400000);
-      summary.innerHTML='<div class="project-meta"><b>'+esc(state.projectOwner||'负责人未设置')+'</b>启动：'+date(state.projectStartDate)+'</div><div class="stats"><div class="stat"><b>'+done+'</b>已完成</div><div class="stat"><b>'+doing+'</b>进行中</div><div class="stat"><b>'+late+'</b>已延期</div><div class="stat"><b>'+pending+'</b>待开始</div></div><div class="progress"><b>'+pct+'% &nbsp; '+done+'/'+total+'</b><div class="track"><div class="bar" style="width:'+pct+'%"></div></div></div><div class="days"><b>'+days+'</b>距上市（天）</div>';
-      summary.className='summary show';
-    }
     function render(state){
       var phases=state.phases||[],html='<div class="board">',i,j,p,n,done;
-      title.innerHTML=esc(state.projectName||PROJECT);renderSummary(state);
+      title.innerHTML=esc(state.projectName||PROJECT);
       for(i=0;i<phases.length;i++){
         p=phases[i];done=0;for(j=0;j<(p.nodes||[]).length;j++)if(p.nodes[j].status==='completed')done++;
         html+='<section class="phase"><div class="head" style="border-top-color:'+esc(p.color||'#3b82f6')+'">'+esc(p.name)+'<div class="count">'+done+' / '+(p.nodes||[]).length+' 已完成</div></div><div class="nodes">';

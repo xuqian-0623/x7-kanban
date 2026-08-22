@@ -99,6 +99,10 @@ public final class MainActivity extends Activity {
     }
 
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+            webView.loadUrl("javascript:window.refreshKanban&&window.refreshKanban()");
+            return true;
+        }
         if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_REFRESH) {
             webView.reload();
             return true;

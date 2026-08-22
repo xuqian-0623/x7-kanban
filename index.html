@@ -1412,6 +1412,14 @@
       const [sellingPoints, setSellingPoints] = useState(initialSelling);
       const imageInputRef = useRef(null);
 
+      // 切换项目或收到云端更新时，同步表单内部状态，避免页面显示旧项目的本地简介。
+      useEffect(() => {
+        if (editing) return;
+        setImage(initialImage);
+        setParams(initialParams);
+        setSellingPoints(initialSelling);
+      }, [initialImage, initialParams, initialSelling, editing]);
+
       const handleSave = () => {
         dispatch({ type: actionTypes.UPDATE_PROJECT_PROFILE, payload: { image: image, params: params, sellingPoints: sellingPoints } });
         setEditing(false);

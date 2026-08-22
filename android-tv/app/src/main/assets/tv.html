@@ -9,6 +9,7 @@
     body{font-family:Arial,"Microsoft YaHei",sans-serif}.top{margin:8px 10px 0;padding:10px 14px;background:#fff;border:1px solid #d8e1ec;border-bottom:0;border-radius:10px 10px 0 0}
     h1{display:inline-block;margin:0;font-size:23px}.sync{float:right;margin-top:5px;color:#64748b}.ok{color:#059669}.error{color:#dc2626}
     .summary{display:none;align-items:center;gap:22px;margin:0 10px 8px;padding:8px 14px;background:#fff;border:1px solid #d8e1ec;border-top:0;border-radius:0 0 10px 10px;color:#64748b;font-size:11px}.summary.show{display:flex}.project-meta{min-width:180px}.project-meta b{display:block;color:#334155;font-size:13px;margin-bottom:3px}.stats{display:flex;gap:18px;flex:1}.stat b{display:block;color:#0f172a;font-size:17px}.progress{width:220px;color:#334155}.track{height:7px;margin-top:5px;background:#dbe5f1;border-radius:4px;overflow:hidden}.bar{height:100%;background:#3b82f6}.days{min-width:82px;text-align:center}.days b{display:block;color:#10b981;font-size:21px}
+    .profile{display:none;margin:0 10px 8px;padding:7px 12px;background:#fff;border:1px solid #d8e1ec;border-radius:8px;color:#64748b;font-size:10px;white-space:nowrap;overflow:hidden}.profile.show{display:flex;align-items:center;gap:14px}.profile-title{color:#1e293b;font-size:12px;font-weight:bold}.profile-item{min-width:0;overflow:hidden;text-overflow:ellipsis}.profile-item b{color:#475569}.profile-empty{color:#94a3b8}
     .board{display:flex;align-items:flex-start;gap:8px;width:100%;padding:0 10px 8px;overflow:hidden}.phase{flex:1 1 0;min-width:0;background:#fff;border:1px solid #d8e1ec;border-radius:8px;overflow:hidden;box-shadow:0 2px 5px rgba(15,23,42,.08)}
     .head{padding:9px 10px;border-top:4px solid #3b82f6;background:#f8fafc;font-size:16px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.count{margin-top:4px;color:#64748b;font-size:10px;font-weight:normal}
     .nodes{padding:6px}.node{margin-bottom:6px;padding:8px;background:#fff;border:1px solid #dbe3ed;border-radius:7px}.name{font-size:13px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.meta{margin-top:5px;color:#64748b;font-size:10px}.status{display:inline-block;margin-top:5px;padding:2px 7px;border-radius:9px;background:#e8eef6;color:#64748b;font-size:10px}
@@ -19,29 +20,37 @@
 <body>
   <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">应用已启动，正在读取数据…</span></div>
   <div class="summary" id="summary"></div>
+  <div class="profile" id="profile"></div>
   <div id="content"><div class="message">正在连接项目服务器…</div></div>
   <script>
   (function(){
     var API='https://x7-kanban-api.xuqian0623.workers.dev';
     var PROJECT='';
-    var title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),content=document.getElementById('content');
+    var title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),profile=document.getElementById('profile'),content=document.getElementById('content');
     function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
     function date(v){if(!v)return '--';var d=new Date(v);return isNaN(d.getTime())?'--':('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
-    function label(n){return n.delay?'延期':n.status==='completed'?'已完成':n.status==='ongoing'?'进行中':'待开始'}
+    function overdue(n){if(!n.planEnd||n.status==='completed')return false;var today=new Date(),end=new Date(n.planEnd);today.setHours(0,0,0,0);end.setHours(0,0,0,0);return end<today}
+    function label(n){return overdue(n)?'逾期':n.delay?'延期':n.status==='completed'?'已完成':n.status==='ongoing'?'进行中':'待开始'}
     function renderSummary(state){
       var phases=state.phases||[],i,j,n,total=0,done=0,doing=0,late=0,pending=0,days='--',launch,pct;
-      for(i=0;i<phases.length;i++)for(j=0;j<(phases[i].nodes||[]).length;j++){n=phases[i].nodes[j];total++;if(n.status==='completed')done++;else if(n.delay)late++;else if(n.status==='ongoing')doing++;else pending++}
+      for(i=0;i<phases.length;i++)for(j=0;j<(phases[i].nodes||[]).length;j++){n=phases[i].nodes[j];total++;if(n.status==='completed')done++;else if(n.delay||overdue(n))late++;else if(n.status==='ongoing')doing++;else pending++}
       pct=total?Math.round(done*100/total):0;launch=new Date(state.launchDate);if(!isNaN(launch.getTime()))days=Math.ceil((launch.getTime()-new Date().getTime())/86400000);
       summary.innerHTML='<div class="project-meta"><b>'+esc(state.projectOwner||'负责人未设置')+'</b>启动：'+date(state.projectStartDate)+'</div><div class="stats"><div class="stat"><b>'+done+'</b>已完成</div><div class="stat"><b>'+doing+'</b>进行中</div><div class="stat"><b>'+late+'</b>已延期</div><div class="stat"><b>'+pending+'</b>待开始</div></div><div class="progress"><b>'+pct+'% &nbsp; '+done+'/'+total+'</b><div class="track"><div class="bar" style="width:'+pct+'%"></div></div></div><div class="days"><b>'+days+'</b>距上市（天）</div>';
       summary.className='summary show';
     }
+    function renderProfile(state){
+      var p=state.projectProfile||{},params=String(p.params||'').replace(/\s+/g,' '),selling=String(p.sellingPoints||'').replace(/\s+/g,' '),html='<span class="profile-title">☑ 项目简介</span>';
+      if(!p.image&&!params&&!selling)html+='<span class="profile-empty">暂未填写；可在电脑端添加产品效果图、基础参数和核心卖点</span>';
+      else{if(p.image)html+='<span class="profile-item"><b>产品效果图</b> 已上传</span>';if(params)html+='<span class="profile-item"><b>基础参数</b> '+esc(params)+'</span>';if(selling)html+='<span class="profile-item"><b>核心卖点</b> '+esc(selling)+'</span>'}
+      profile.innerHTML=html;profile.className='profile show';
+    }
     function render(state){
       var phases=state.phases||[],html='<div class="board">',i,j,p,n,done;
-      title.innerHTML=esc(state.projectName||PROJECT);renderSummary(state);
+      title.innerHTML=esc(state.projectName||PROJECT);renderSummary(state);renderProfile(state);
       for(i=0;i<phases.length;i++){
         p=phases[i];done=0;for(j=0;j<(p.nodes||[]).length;j++)if(p.nodes[j].status==='completed')done++;
         html+='<section class="phase"><div class="head" style="border-top-color:'+esc(p.color||'#3b82f6')+'">'+esc(p.name)+'<div class="count">'+done+' / '+(p.nodes||[]).length+' 已完成</div></div><div class="nodes">';
-        for(j=0;j<(p.nodes||[]).length;j++){n=p.nodes[j];html+='<div class="node '+esc(n.status||'pending')+(n.delay?' delayed':'')+'"><div class="name">'+esc(n.name)+'</div><div class="meta">'+date(n.planStart)+' → '+date(n.planEnd)+(n.owner?'　'+esc(n.owner):'')+'</div><span class="status">'+label(n)+'</span></div>'}
+        for(j=0;j<(p.nodes||[]).length;j++){n=p.nodes[j];html+='<div class="node '+esc(n.status||'pending')+((n.delay||overdue(n))?' delayed':'')+'"><div class="name">'+esc(n.name)+'</div><div class="meta">'+date(n.planStart)+' → '+date(n.planEnd)+(n.owner?'　'+esc(n.owner):'')+'</div><span class="status">'+label(n)+'</span></div>'}
         html+='</div></section>';
       }
       content.innerHTML=html+'</div>';setTimeout(fitBoard,0);

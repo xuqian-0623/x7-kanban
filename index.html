@@ -3189,10 +3189,9 @@
         if (backendInitRef.current) return;
         backendInitRef.current = true;
         const params = new URLSearchParams(window.location.search);
-        const savedApiBase = localStorage.getItem('x7-api-base');
-        const apiBase = params.get('api') || (!savedApiBase || savedApiBase.includes('x7-kanban.onrender.com')
-          ? 'https://x7-kanban-api.xuqian0623.workers.dev'
-          : savedApiBase);
+        // 不再沿用浏览器里可能残留的 Render/Vercel 旧地址。
+        // 仅当网址明确传入 ?api= 时才覆盖正式 Cloudflare 接口。
+        const apiBase = params.get('api') || 'https://x7-kanban-api.xuqian0623.workers.dev';
         localStorage.setItem('x7-api-base', apiBase);
         window.__API_BASE__ = apiBase;
         window.__API_KEY__ = localStorage.getItem('x7-api-key') || 'x7-kanban-secret-2026';

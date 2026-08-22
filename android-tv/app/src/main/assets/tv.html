@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>X7 项目看板</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#08111f;color:#e5edf8}
+    body{font-family:Arial,"Microsoft YaHei",sans-serif}.top{padding:18px 24px;background:#0d192b;border-bottom:1px solid #24334a}
+    h1{display:inline-block;margin:0;font-size:28px}.sync{float:right;margin-top:8px;color:#9fb0c8}.ok{color:#62d49b}.error{color:#ff8b8b}
+    .board{white-space:nowrap;padding:18px;overflow-x:auto}.phase{display:inline-block;vertical-align:top;white-space:normal;width:286px;margin-right:16px;background:#0e1b2e;border:1px solid #243650;border-radius:10px;overflow:hidden}
+    .head{padding:14px 16px;border-top:4px solid #3b82f6;background:#12223a;font-size:20px;font-weight:bold}.count{margin-top:5px;color:#91a4bf;font-size:13px;font-weight:normal}
+    .nodes{padding:10px}.node{margin-bottom:9px;padding:12px;background:#14243a;border:1px solid #273a55;border-radius:8px}.name{font-size:16px;font-weight:bold}.meta{margin-top:8px;color:#98aac2;font-size:12px}.status{display:inline-block;margin-top:8px;padding:3px 8px;border-radius:10px;background:#323b4a;color:#bdc8d8;font-size:12px}
+    .completed .status{background:#113b32;color:#68d6ac}.ongoing .status{background:#173b68;color:#82b9ff}.delayed{border-color:#a74747}.delayed .status{background:#552626;color:#ffaaaa}
+    .message{margin:60px auto;max-width:760px;padding:30px;text-align:center;border-radius:12px;background:#102039;font-size:20px;line-height:1.7}
+  </style>
+</head>
+<body>
+  <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">应用已启动，正在读取数据…</span></div>
+  <div id="content"><div class="message">正在连接项目服务器…</div></div>
+  <script>
+  (function(){
+    var API='https://x7-kanban.onrender.com';
+    var PROJECT='智能空气炸锅 X7';
+    var title=document.getElementById('title'),sync=document.getElementById('sync'),content=document.getElementById('content');
+    function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+    function date(v){if(!v)return '--';var d=new Date(v);return isNaN(d.getTime())?'--':('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+    function label(n){return n.delay?'延期':n.status==='completed'?'已完成':n.status==='ongoing'?'进行中':'待开始'}
+    function render(state){
+      var phases=state.phases||[],html='<div class="board">',i,j,p,n,done;
+      title.innerHTML=esc(state.projectName||PROJECT);
+      for(i=0;i<phases.length;i++){
+        p=phases[i];done=0;for(j=0;j<(p.nodes||[]).length;j++)if(p.nodes[j].status==='completed')done++;
+        html+='<section class="phase"><div class="head" style="border-top-color:'+esc(p.color||'#3b82f6')+'">'+esc(p.name)+'<div class="count">'+done+' / '+(p.nodes||[]).length+' 已完成</div></div><div class="nodes">';
+        for(j=0;j<(p.nodes||[]).length;j++){n=p.nodes[j];html+='<div class="node '+esc(n.status||'pending')+(n.delay?' delayed':'')+'"><div class="name">'+esc(n.name)+'</div><div class="meta">'+date(n.planStart)+' → '+date(n.planEnd)+(n.owner?'　'+esc(n.owner):'')+'</div><span class="status">'+label(n)+'</span></div>'}
+        html+='</div></section>';
+      }
+      content.innerHTML=html+'</div>';
+    }
+    function load(){
+      var xhr=new XMLHttpRequest();sync.className='sync';sync.innerHTML='正在同步…';
+      xhr.open('GET',API+'/api/state/'+encodeURIComponent(PROJECT)+'?_='+new Date().getTime(),true);xhr.timeout=30000;
+      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText);if(!data.state)throw new Error('服务器暂无项目数据');render(data.state);sync.className='sync ok';sync.innerHTML='已更新 '+new Date().toLocaleTimeString()}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
+      xhr.onerror=function(){fail('网络连接失败')};xhr.ontimeout=function(){fail('连接超时，服务器可能正在唤醒')};xhr.send(null);
+    }
+    function fail(msg){sync.className='sync error';sync.innerHTML='同步失败';if(content.getElementsByClassName('board').length===0)content.innerHTML='<div class="message">应用已正常启动<br>暂时无法读取数据：'+esc(msg)+'<br>15 秒后自动重试</div>'}
+    load();setInterval(load,15000);
+  }());
+  </script>
+</body>
+</html>

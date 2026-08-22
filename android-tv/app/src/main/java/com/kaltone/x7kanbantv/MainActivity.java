@@ -16,7 +16,7 @@ import android.webkit.WebViewClient;
 
 public final class MainActivity extends Activity {
     private static final String DASHBOARD_URL =
-            "https://xuqian-0623.github.io/x7-kanban/tv.html?project=%E6%99%BA%E8%83%BD%E7%A9%BA%E6%B0%94%E7%82%B8%E9%94%85%20X7&interval=15000";
+            "file:///android_asset/tv.html";
     private static final long RETRY_DELAY_MS = 15000L;
 
     private final Handler handler = new Handler();

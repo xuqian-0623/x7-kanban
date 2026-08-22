@@ -57,12 +57,13 @@
       content.innerHTML=html+'</div>';setTimeout(fitBoard,0);
     }
     function fitBoard(){
-      var board=content.getElementsByClassName('board')[0],phases=content.getElementsByClassName('phase'),i,max=0,available,scale;
+      var board=content.getElementsByClassName('board')[0],phases=content.getElementsByClassName('phase'),i,max=0,available,naturalHeight,scale;
       if(!board||!phases.length)return;
       board.style.zoom='1';board.style.width='100%';
       for(i=0;i<phases.length;i++)if(phases[i].offsetHeight>max)max=phases[i].offsetHeight;
-      available=document.documentElement.clientHeight-board.offsetTop-12;
-      scale=Math.min(1,available/(max+20));scale=Math.max(.38,scale);
+      available=(document.documentElement.clientHeight||window.innerHeight)-board.getBoundingClientRect().top-20;
+      naturalHeight=Math.max(board.scrollHeight,max+20);
+      scale=Math.min(1,((available-8)/naturalHeight)*.97);scale=Math.max(.10,scale);
       if(scale<1)board.style.zoom=String(scale);
     }
     function loadProject(project){

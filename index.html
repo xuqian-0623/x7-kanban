@@ -1447,7 +1447,7 @@
       const sellingPlaceholder = '例如：\n① 360度立体加热，无需翻面\n② 智能温控芯片，精准到 ±1℃\n③ 低油脂烹饪，健康饮食首选\n④ 24h 预约功能\n⑤ OLED 触控屏';
 
       return (
-        <div className="rounded-xl p-5 mb-5 glass-card">
+        <div className="rounded-xl p-5 mb-5 glass-card" data-editing={editing ? 'true' : 'false'}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
@@ -3154,6 +3154,25 @@
       const savedProjectsRef = React.useRef(state.savedProjects || []);
       const lastLocalEditRef = React.useRef(0);
 
+      const isUserEditing = () => {
+        const active = document.activeElement;
+        const focusedEditor = active && (
+          active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable
+        );
+        return !!focusedEditor || !!document.querySelector('[data-editing="true"]') || !!document.querySelector('textarea');
+      };
+
+      useEffect(() => {
+        const warnBeforeRefresh = (event) => {
+          if (!isUserEditing()) return;
+          event.preventDefault();
+          event.returnValue = '';
+          return '';
+        };
+        window.addEventListener('beforeunload', warnBeforeRefresh);
+        return () => window.removeEventListener('beforeunload', warnBeforeRefresh);
+      }, []);
+
       useEffect(() => {
         currentProjectRef.current = state.projectName;
         savedProjectsRef.current = state.savedProjects || [];
@@ -3296,7 +3315,8 @@
         const checkCloud = async () => {
           const apiBase = window.__API_BASE__;
           const key = currentProjectRef.current || 'default';
-          if (!apiBase || Date.now() - lastLocalEditRef.current < 3500) return;
+          // 用户正在填写尚未保存的表单时，暂缓云端全量覆盖；失去编辑状态后下一轮会继续同步。
+          if (!apiBase || isUserEditing() || Date.now() - lastLocalEditRef.current < 3500) return;
           try {
             const res = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}?_=${Date.now()}`, { cache: 'no-store' });
             if (!res.ok) return;

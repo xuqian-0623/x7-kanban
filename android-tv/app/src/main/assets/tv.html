@@ -9,7 +9,7 @@
     body{font-family:Arial,"Microsoft YaHei",sans-serif}.top{margin:8px 10px 0;padding:10px 14px;background:#fff;border:1px solid #d8e1ec;border-bottom:0;border-radius:10px 10px 0 0}
     h1{display:inline-block;margin:0;font-size:23px}.sync{float:right;margin-top:5px;color:#64748b}.ok{color:#059669}.error{color:#dc2626}
     .summary{display:none;align-items:center;gap:22px;margin:0 10px 8px;padding:8px 14px;background:#fff;border:1px solid #d8e1ec;border-top:0;border-radius:0 0 10px 10px;color:#64748b;font-size:11px}.summary.show{display:flex}.project-meta{min-width:180px}.project-meta b{display:block;color:#334155;font-size:13px;margin-bottom:3px}.stats{display:flex;gap:24px;flex:1;align-items:flex-start}.stat{min-width:58px;padding:0 4px;text-align:center;white-space:nowrap}.stat b{display:block;margin-bottom:3px;color:#0f172a;font-size:17px}.progress{width:220px;color:#334155}.track{height:7px;margin-top:5px;background:#dbe5f1;border-radius:4px;overflow:hidden}.bar{height:100%;background:#3b82f6}.days{min-width:82px;text-align:center}.days b{display:block;color:#10b981;font-size:21px}
-    .profile{display:none;margin:0 10px 8px;padding:7px 12px;background:#fff;border:1px solid #d8e1ec;border-radius:8px;color:#64748b;font-size:10px}.profile.show{display:flex;align-items:flex-start;flex-direction:column;gap:4px}.profile-title{display:block;width:100%;color:#1e293b;font-size:12px;font-weight:bold}.profile-item{display:block;width:100%;white-space:normal;overflow-wrap:break-word;word-break:break-all;line-height:1.35}.profile-item b{color:#475569}.profile-empty{display:block;width:100%;color:#94a3b8;white-space:normal;line-height:1.35}
+    .profile{display:none;margin:0 10px 8px;padding:7px 12px;background:#fff;border:1px solid #d8e1ec;border-radius:8px;color:#64748b;font-size:10px}.profile.show{display:flex;align-items:flex-start;flex-wrap:wrap;gap:5px 12px}.profile-title{display:block;width:100%;color:#1e293b;font-size:12px;font-weight:bold}.profile-item{display:block;flex:1 1 22%;min-width:150px;max-width:25%;white-space:normal;overflow-wrap:break-word;word-break:break-all;line-height:1.35}.profile-item b{color:#475569}.profile-empty{display:block;width:100%;color:#94a3b8;white-space:normal;line-height:1.35}
     .board{display:flex;align-items:flex-start;gap:6px;width:100%;padding:0 26px 8px 14px;overflow:hidden}.phase{flex:1 1 0;min-width:0;background:#fff;border:1px solid #d8e1ec;border-radius:8px;overflow:hidden;box-shadow:0 2px 5px rgba(15,23,42,.08)}
     .head{padding:9px 10px;border-top:4px solid #3b82f6;background:#f8fafc;font-size:16px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.count{margin-top:4px;color:#64748b;font-size:10px;font-weight:normal}
     .nodes{padding:6px}.node{margin-bottom:6px;padding:8px;background:#fff;border:1px solid #dbe3ed;border-radius:7px}.name{font-size:13px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.meta{margin-top:5px;color:#64748b;font-size:10px}.status{display:inline-block;margin-top:5px;padding:2px 7px;border-radius:9px;background:#e8eef6;color:#64748b;font-size:10px}
@@ -18,17 +18,15 @@
   </style>
 </head>
 <body>
-  <div id="viewport">
   <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">正在读取数据… · 左右键切换项目 · 确定键刷新</span></div>
   <div class="summary" id="summary"></div>
   <div class="profile" id="profile"></div>
   <div id="content"><div class="message">正在连接项目服务器…</div></div>
-  </div>
   <script>
   (function(){
     var API='https://x7-kanban-api.xuqian0623.workers.dev';
     var PROJECT='',PROJECTS=[],PROJECT_INDEX=0,LAST='',LAST_KEY_TIME=0;
-    var viewport=document.getElementById('viewport'),title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),profile=document.getElementById('profile'),content=document.getElementById('content');
+    var title=document.getElementById('title'),sync=document.getElementById('sync'),summary=document.getElementById('summary'),profile=document.getElementById('profile'),content=document.getElementById('content');
     function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
     function date(v){if(!v)return '--';var d=new Date(v);return isNaN(d.getTime())?'--':('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
     function overdue(n){if(!n.planEnd||n.status==='completed')return false;var today=new Date(),end=new Date(n.planEnd);today.setHours(0,0,0,0);end.setHours(0,0,0,0);return end<today}
@@ -56,22 +54,16 @@
         for(j=0;j<(p.nodes||[]).length;j++){n=p.nodes[j];html+='<div class="node '+esc(n.status||'pending')+((n.delay||overdue(n))?' delayed':'')+'"><div class="name">'+esc(n.name)+'</div><div class="meta">'+date(n.planStart)+' → '+date(n.planEnd)+(n.owner?'　'+esc(n.owner):'')+'</div><span class="status">'+label(n)+'</span></div>'}
         html+='</div></section>';
       }
-      content.innerHTML=html+'</div>';setTimeout(fitScreen,0);
+      content.innerHTML=html+'</div>';setTimeout(fitBoard,0);
     }
-    function fitScreen(){
-      var screenWidth=document.documentElement.clientWidth||window.innerWidth,screenHeight=document.documentElement.clientHeight||window.innerHeight,naturalWidth,naturalHeight,scale;
-      if(!viewport||!screenWidth||!screenHeight)return;
-      viewport.style.zoom='1';viewport.style.width='100%';
-      naturalWidth=Math.max(viewport.scrollWidth,viewport.offsetWidth);
-      naturalHeight=Math.max(viewport.scrollHeight,viewport.offsetHeight);
-      scale=Math.min(1,screenWidth/naturalWidth,screenHeight/naturalHeight);
-      if(scale<1){
-        viewport.style.width=(100/scale)+'%';
-        naturalHeight=Math.max(viewport.scrollHeight,viewport.offsetHeight);
-        scale=Math.min(scale,screenHeight/naturalHeight);
-        viewport.style.width=(100/scale)+'%';
-        viewport.style.zoom=String(scale);
-      }
+    function fitBoard(){
+      var board=content.getElementsByClassName('board')[0],phases=content.getElementsByClassName('phase'),i,max=0,available,scale;
+      if(!board||!phases.length)return;
+      board.style.zoom='1';board.style.width='100%';
+      for(i=0;i<phases.length;i++)if(phases[i].offsetHeight>max)max=phases[i].offsetHeight;
+      available=document.documentElement.clientHeight-board.offsetTop-12;
+      scale=Math.min(1,available/(max+20));scale=Math.max(.38,scale);
+      if(scale<1)board.style.zoom=String(scale);
     }
     function loadProject(project){
       var xhr=new XMLHttpRequest();sync.className='sync';sync.innerHTML='正在同步…';
@@ -91,7 +83,7 @@ function manualRefresh(){var now=new Date().getTime();if(now-LAST_KEY_TIME<1000)
 function switchProject(step){if(PROJECTS.length<2){sync.className='sync';sync.innerHTML='当前只有 1 个项目 · 确定键刷新';return}PROJECT_INDEX=(PROJECT_INDEX+step+PROJECTS.length)%PROJECTS.length;PROJECT=PROJECTS[PROJECT_INDEX];try{localStorage.setItem('x7-tv-project',PROJECT)}catch(ignore){}LAST='';title.innerHTML=esc(PROJECT);sync.className='sync';sync.innerHTML='正在切换项目 '+(PROJECT_INDEX+1)+' / '+PROJECTS.length+'…';loadProject(PROJECT)}
 window.refreshKanban=manualRefresh;
 window.switchKanbanProject=switchProject;
-window.onresize=function(){setTimeout(fitScreen,0)};
+window.onresize=function(){setTimeout(fitBoard,0)};
 document.onkeydown=function(e){var code=(e||window.event).keyCode;if(code===13||code===23||code===66){if(e&&e.preventDefault)e.preventDefault();manualRefresh();return false}if(code===37||code===21){if(e&&e.preventDefault)e.preventDefault();switchProject(-1);return false}if(code===39||code===22){if(e&&e.preventDefault)e.preventDefault();switchProject(1);return false}};
     load();setInterval(load,10000);
   }());

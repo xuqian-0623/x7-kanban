@@ -3,5 +3,5 @@
   "name": "x7-kanban-api",
   "main": "src/index.js",
   "compatibility_date": "2026-08-01",
-  "kv_namespaces": [{ "binding": "KANBAN_DATA", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }]
+  "kv_namespaces": [{ "binding": "KANBAN_DATA", "id": "8f00678ecf0b4078a72e56d85f91b031" }]
 }

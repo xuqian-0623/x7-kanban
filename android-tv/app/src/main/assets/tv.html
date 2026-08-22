@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>X7 项目看板</title>
   <style>
-    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#08111f;color:#e5edf8}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#08111f;color:#e5edf8}
     body{font-family:Arial,"Microsoft YaHei",sans-serif}.top{padding:18px 24px;background:#0d192b;border-bottom:1px solid #24334a}
     h1{display:inline-block;margin:0;font-size:28px}.sync{float:right;margin-top:8px;color:#9fb0c8}.ok{color:#62d49b}.error{color:#ff8b8b}
     .board{display:flex;align-items:flex-start;gap:8px;width:100%;padding:10px;overflow:hidden}.phase{flex:1 1 0;min-width:0;background:#0e1b2e;border:1px solid #243650;border-radius:8px;overflow:hidden}
@@ -35,7 +35,16 @@
         for(j=0;j<(p.nodes||[]).length;j++){n=p.nodes[j];html+='<div class="node '+esc(n.status||'pending')+(n.delay?' delayed':'')+'"><div class="name">'+esc(n.name)+'</div><div class="meta">'+date(n.planStart)+' → '+date(n.planEnd)+(n.owner?'　'+esc(n.owner):'')+'</div><span class="status">'+label(n)+'</span></div>'}
         html+='</div></section>';
       }
-      content.innerHTML=html+'</div>';
+      content.innerHTML=html+'</div>';setTimeout(fitBoard,0);
+    }
+    function fitBoard(){
+      var board=content.getElementsByClassName('board')[0],phases=content.getElementsByClassName('phase'),i,max=0,available,scale;
+      if(!board||!phases.length)return;
+      board.style.zoom='1';board.style.width='100%';
+      for(i=0;i<phases.length;i++)if(phases[i].offsetHeight>max)max=phases[i].offsetHeight;
+      available=document.documentElement.clientHeight-board.offsetTop-12;
+      scale=Math.min(1,available/(max+20));scale=Math.max(.55,scale);
+      if(scale<1){board.style.width=(100/scale)+'%';board.style.zoom=String(scale)}
     }
     function loadProject(project){
       var xhr=new XMLHttpRequest();sync.className='sync';sync.innerHTML='正在同步…';

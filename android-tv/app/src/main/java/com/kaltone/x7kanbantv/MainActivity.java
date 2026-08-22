@@ -44,6 +44,11 @@ public final class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
+        // The bundled, trusted TV page is loaded from android_asset and reads the
+        // project JSON from our Cloudflare API. Android 6 blocks that request by
+        // default because it crosses from file:// to https://.
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowUniversalAccessFromFileURLs(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
         settings.setBuiltInZoomControls(false);

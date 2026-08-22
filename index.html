@@ -3141,7 +3141,15 @@
       const overdueAlertedRef = React.useRef({});
       const applyingCloudRef = React.useRef(false);
       const lastCloudUpdatedRef = React.useRef(Number(localStorage.getItem('x7-cloud-updated-at') || 0));
+      const cloudUpdatedByProjectRef = React.useRef({});
+      const currentProjectRef = React.useRef(state.projectName);
+      const savedProjectsRef = React.useRef(state.savedProjects || []);
       const lastLocalEditRef = React.useRef(0);
+
+      useEffect(() => {
+        currentProjectRef.current = state.projectName;
+        savedProjectsRef.current = state.savedProjects || [];
+      }, [state.projectName, state.savedProjects]);
 
       // Live countdown tick
       useEffect(() => {
@@ -3183,6 +3191,43 @@
         console.log('[Backend] API base:', apiBase);
       }, []);
 
+      // 新浏览器首次打开时，从云端下载完整项目目录和每个项目的状态。
+      // savedProjects 不再只依赖当前电脑的 localStorage，因此其他电脑也能切换全部项目。
+      useEffect(() => {
+        let stopped = false;
+        const loadCloudCatalog = async () => {
+          const apiBase = window.__API_BASE__;
+          if (!apiBase) return;
+          try {
+            const listRes = await fetch(`${apiBase}/api/projects?_=${Date.now()}`, { cache: 'no-store' });
+            if (!listRes.ok) return;
+            const listData = await listRes.json();
+            const names = (listData.projects || []).map(p => p.name).filter(Boolean);
+            if (!names.length) return;
+            const records = await Promise.all(names.map(async name => {
+              const res = await fetch(`${apiBase}/api/state/${encodeURIComponent(name)}?_=${Date.now()}`, { cache: 'no-store' });
+              if (!res.ok) return null;
+              const data = await res.json();
+              return data.state ? { name, state: reviveProjectState(data.state), updatedAt: Number(data.updatedAt || 0) } : null;
+            }));
+            const available = records.filter(Boolean);
+            if (stopped || !available.length) return;
+            available.forEach(item => { cloudUpdatedByProjectRef.current[item.name] = item.updatedAt; });
+            let selected = available.find(item => item.name === currentProjectRef.current) || available[0];
+            const savedProjects = available.filter(item => item.name !== selected.name).map(item => ({ ...item.state, savedProjects: undefined }));
+            const merged = { ...selected.state, savedProjects };
+            lastCloudUpdatedRef.current = selected.updatedAt;
+            localStorage.setItem('x7-cloud-updated-at', String(selected.updatedAt));
+            applyingCloudRef.current = true;
+            dispatch({ type: actionTypes.FULL_SYNC, payload: merged });
+          } catch (e) {
+            console.warn('[Backend] 云端项目目录暂不可用:', e.message);
+          }
+        };
+        const timer = setTimeout(loadCloudCatalog, 300);
+        return () => { stopped = true; clearTimeout(timer); };
+      }, []);
+
       // 编辑端自动保存到共享后端。首次加载不上传，避免用本地初始值覆盖云端；
       // 后续变更合并为一次延迟写入，电视端可轮询读取最新状态。
       const cloudStateSignature = JSON.stringify({ ...state, tick: 0, productImages: [], productFiles: [] });
@@ -3204,6 +3249,7 @@
           if (!apiBase || !apiKey) return;
           const lean = {
             ...state,
+            savedProjects: [],
             productImages: [],
             productFiles: [],
             phases: state.phases.map(p => ({
@@ -3225,6 +3271,7 @@
               const data = await res.json().catch(() => ({}));
               if (data.updatedAt) {
                 lastCloudUpdatedRef.current = Number(data.updatedAt);
+                cloudUpdatedByProjectRef.current[key] = Number(data.updatedAt);
                 localStorage.setItem('x7-cloud-updated-at', String(data.updatedAt));
               }
             }
@@ -3241,18 +3288,21 @@
         let stopped = false;
         const checkCloud = async () => {
           const apiBase = window.__API_BASE__;
-          const key = state.projectName || 'default';
+          const key = currentProjectRef.current || 'default';
           if (!apiBase || Date.now() - lastLocalEditRef.current < 3500) return;
           try {
             const res = await fetch(`${apiBase}/api/state/${encodeURIComponent(key)}?_=${Date.now()}`, { cache: 'no-store' });
             if (!res.ok) return;
             const data = await res.json();
             const updatedAt = Number(data.updatedAt || 0);
-            if (!stopped && data.state && updatedAt > lastCloudUpdatedRef.current) {
+            const knownUpdatedAt = Number(cloudUpdatedByProjectRef.current[key] || 0);
+            if (!stopped && data.state && updatedAt > knownUpdatedAt) {
               lastCloudUpdatedRef.current = updatedAt;
+              cloudUpdatedByProjectRef.current[key] = updatedAt;
               localStorage.setItem('x7-cloud-updated-at', String(updatedAt));
               applyingCloudRef.current = true;
-              dispatch({ type: 'FULL_SYNC', payload: reviveProjectState(data.state) });
+              const incoming = reviveProjectState(data.state);
+              dispatch({ type: 'FULL_SYNC', payload: { ...incoming, savedProjects: savedProjectsRef.current } });
             }
           } catch (e) {
             console.warn('[Backend] 云端检测暂不可用:', e.message);

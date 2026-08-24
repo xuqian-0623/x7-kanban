@@ -6,8 +6,8 @@
   <title>X7 项目看板</title>
   <style>
     *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#eef3f9;color:#1e293b}
-    body{font-family:Arial,"Microsoft YaHei",sans-serif}.top{position:relative;margin:8px 10px 0;padding:10px 360px 10px 14px;background:#fff;border:1px solid #d8e1ec;border-bottom:0;border-radius:10px 10px 0 0}
-    h1{display:block;margin:0;font-size:23px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sync{position:absolute;top:15px;right:14px;width:330px;color:#64748b;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ok{color:#059669}.error{color:#dc2626}
+    body{font-family:Arial,"Microsoft YaHei",sans-serif}.top{position:relative;margin:8px 10px 0;padding:10px 250px 10px 14px;background:#fff;border:1px solid #d8e1ec;border-bottom:0;border-radius:10px 10px 0 0}
+    h1{display:block;margin:0;font-size:23px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sync{position:absolute;top:15px;right:14px;width:220px;color:#64748b;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ok{color:#059669}.error{color:#dc2626}
     .summary{display:none;align-items:center;gap:14px;margin:0 10px 8px;padding:8px 14px;background:#fff;border:1px solid #d8e1ec;border-top:0;border-radius:0 0 10px 10px;color:#64748b;font-size:11px}.summary.show{display:flex}.project-meta{flex:0 1 160px;min-width:120px}.project-meta b{display:block;color:#334155;font-size:13px;margin-bottom:3px}.stats{display:flex;gap:10px;flex:1 1 auto;align-items:flex-start;justify-content:center}.stat{min-width:50px;padding:0 3px;text-align:center;white-space:nowrap}.stat b{display:block;margin-bottom:3px;color:#0f172a;font-size:17px}.progress{flex:0 1 190px;min-width:130px;color:#334155}.track{height:7px;margin-top:5px;background:#dbe5f1;border-radius:4px;overflow:hidden}.bar{height:100%;background:#3b82f6}.days{flex:0 0 74px;text-align:center}.days b{display:block;color:#10b981;font-size:21px}
     .profile{display:none;margin:0 10px 8px;padding:7px 12px;background:#fff;border:1px solid #d8e1ec;border-radius:8px;color:#64748b;font-size:10px}.profile.show{display:flex;align-items:flex-start;flex-wrap:wrap;gap:5px 12px}.profile-title{display:block;width:100%;color:#1e293b;font-size:12px;font-weight:bold}.profile-item{display:block;flex:1 1 22%;min-width:150px;max-width:25%;white-space:normal;overflow-wrap:break-word;word-break:break-all;line-height:1.35}.profile-item b{color:#475569}.profile-empty{display:block;width:100%;color:#94a3b8;white-space:normal;line-height:1.35}
     .board{display:flex;align-items:flex-start;gap:6px;width:100%;padding:0 26px 8px 14px;overflow:hidden}.phase{flex:1 1 0;min-width:0;background:#fff;border:1px solid #d8e1ec;border-radius:8px;overflow:hidden;box-shadow:0 2px 5px rgba(15,23,42,.08)}
@@ -18,7 +18,7 @@
   </style>
 </head>
 <body>
-  <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">正在读取数据… · 左右键切换项目 · 确定键刷新</span></div>
+  <div class="top"><h1 id="title">X7 项目看板</h1><span class="sync" id="sync">正在读取数据…</span></div>
   <div class="summary" id="summary"></div>
   <div class="profile" id="profile"></div>
   <div id="content"><div class="message">正在连接项目服务器…</div></div>
@@ -69,7 +69,7 @@
     function loadProject(project){
       var xhr=new XMLHttpRequest();sync.className='sync';sync.innerHTML='正在同步…';
       xhr.open('GET',API+'/api/state/'+encodeURIComponent(project)+'?_='+new Date().getTime(),true);xhr.timeout=30000;
-      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText);if(!data.state)throw new Error('服务器暂无项目数据');if(xhr.responseText!==LAST){LAST=xhr.responseText;render(data.state)}sync.className='sync ok';sync.innerHTML='已更新 '+new Date().toLocaleTimeString()+' · 左右键切换 · 确定键刷新'}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
+      xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status>=200&&xhr.status<300){try{var data=JSON.parse(xhr.responseText);if(!data.state)throw new Error('服务器暂无项目数据');if(xhr.responseText!==LAST){LAST=xhr.responseText;render(data.state)}sync.className='sync ok';sync.innerHTML='已更新 '+new Date().toLocaleTimeString()}catch(e){fail(e.message)}}else fail('服务器响应 '+xhr.status)};
       xhr.onerror=function(){fail('网络连接失败')};xhr.ontimeout=function(){fail('连接超时，服务器可能正在唤醒')};xhr.send(null);
     }
     function load(){
